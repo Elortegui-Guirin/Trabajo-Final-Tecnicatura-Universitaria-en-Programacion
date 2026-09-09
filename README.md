@@ -123,7 +123,7 @@ geoforraje/
 | Fase | Descripción | Estado |
 |------|-------------|--------|
 | 1 | Repositorio, README, modelo de datos | ✅ Completada |
-| 2 | Autenticación y usuarios | ⏳ Pendiente |
+| 2 | Autenticación y usuarios | ✅ Completada |
 | 3 | CRUD de lotes | ⏳ Pendiente |
 | 4 | Integración Leaflet y geometrías | ⏳ Pendiente |
 | 5 | Análisis raster y despliegue | ⏳ Pendiente |
