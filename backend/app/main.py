@@ -42,9 +42,9 @@ Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_sch
 # Routers
 app.include_router(health.router, tags=["health"])
 
-# TODO: FASE 2 - incluir auth router
-# from app.routers import auth
-# app.include_router(auth.router, prefix="/auth", tags=["auth"])
+from app.routers import auth
+
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
 
 # TODO: FASE 3 - incluir lots router
 # from app.routers import lots
