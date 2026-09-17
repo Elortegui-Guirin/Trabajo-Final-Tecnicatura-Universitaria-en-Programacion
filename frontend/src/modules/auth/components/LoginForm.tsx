@@ -26,10 +26,10 @@ export const LoginForm = () => {
     setLoading(true)
     try {
       const result = await authApi.login(data)
-      loginWithTokens(result, null) // user se obtiene de /auth/me después
+      const user = await authApi.me()
+      login(result, user)
       navigate("/dashboard")
     } catch (error: any) {
-      // Error de credenciales inválidas se muestra automáticamente
       setLoading(false)
     }
   }

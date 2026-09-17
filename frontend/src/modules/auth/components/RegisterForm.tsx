@@ -25,10 +25,10 @@ export const RegisterForm = () => {
   const onSubmit = async (data: UserRegister) => {
     setLoading(true)
     try {
-      const userPublic = await authApi.register(data)
-      // Después de registro, hacer login automático
-      const meResult = await authApi.me()
-      loginWithTokens(meResult, userPublic)
+      await authApi.register(data)
+      const result = await authApi.login({ email: data.email, password: data.password })
+      const user = await authApi.me()
+      login(result, user)
       navigate("/dashboard")
     } catch (error: any) {
       setLoading(false)
