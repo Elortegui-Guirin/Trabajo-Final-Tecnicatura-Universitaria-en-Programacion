@@ -124,8 +124,8 @@ geoforraje/
 |------|-------------|--------|
 | 1 | Repositorio, README, modelo de datos | ✅ Completada |
 | 2 | Autenticación y usuarios | ✅ Completada |
-| 3 | CRUD de lotes | ⏳ Pendiente |
-| 4 | Integración Leaflet y geometrías | ⏳ Pendiente |
+| 3 | CRUD de lotes | ✅ Completada |
+| 4 | Integración Leaflet y geometrías | ✅ Completada |
 | 5 | Análisis raster y despliegue | ⏳ Pendiente |
 
 Ver `spec/printable/` para especificación detallada por fase.
