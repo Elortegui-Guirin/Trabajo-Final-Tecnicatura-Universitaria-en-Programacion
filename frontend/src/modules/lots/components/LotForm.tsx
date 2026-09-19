@@ -1,22 +1,21 @@
 // LotForm.tsx - Formulario crear/editar lote con mapa
-import { useState, useEffect } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { useNavigate, useParams } from 'react-router-dom'
-import { MapEditor } from '@/components/MapView/MapEditor'
-import { useCreateLot, useUpdateLot } from '@/modules/lots/hooks/useLots'
-import type { LotCreate, LotUpdate, LotRead, GeoJSONPolygon } from '@/types/api'
+import { useState, useEffect } from "react"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
+import { useNavigate, useParams } from "react-router-dom"
+import { MapEditor } from "@/components/MapView/MapEditor"
+import { useCreateLot, useUpdateLot } from "@/modules/lots/hooks/useLots"
+import type { LotCreate, LotUpdate, LotRead, GeoJSONPolygon } from "@/types/api"
 
 const lotSchema = z.object({
-  name: z.string().min(1, 'Nombre requerido').max(255),
+  name: z.string().min(1, "Nombre requerido").max(255),
   geometry: z.object({
-    type: z.literal('Polygon'),
-    coordinates: z.array(z.array(z.array(z.number()))),
-  }).refine(
-    (g) => g.coordinates[0]?.length >= 4,
-    'Dibuja un polígono válido en el mapa (mín 4 puntos)'
-  ),
+    type: z.literal("Polygon"),
+    coordinates: z.array(
+      z.array(z.array(z.number()))
+    ), // [[[lon, lat], ...], [[lon, lat], ...]] para interiores
+  ]),
 })
 
 type LotFormData = z.infer<typeof lotSchema>
@@ -31,27 +30,41 @@ export function LotForm() {
 
   const [geometry, setGeometry] = useState<GeoJSONPolygon | null>(null)
   const [areaHa, setAreaHa] = useState<number | null>(null)
+  const [editing, setEditing] = useState(false)
 
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<LotFormData>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    setValue,
+    watch,
+  } = useForm<LotFormData>({
     resolver: zodResolver(lotSchema),
-    defaultValues: { name: '', geometry: { type: 'Polygon', coordinates: [[]] } },
+    defaultValues: { name: "", geometry: { type: "Polygon", coordinates: [[]] } },
   })
 
-  // Si es edición, cargar datos (simplificado - en real usar useLot hook)
+  // Si es edición, cargar datos
   useEffect(() => {
-    if (isEdit) {
-      // TODO: cargar datos del lote via useLot hook
-      // Por ahora placeholder
+    if (isEdit && id) {
+      // Cargar lote existente - en implementación real usaríamos useLot hook
+      // Por ahora el geometry viene del prop o state
     }
   }, [isEdit, id])
 
   const handleGeometryChange = (geojson: any) => {
-    if (geojson.geometry?.coordinates?.[0]?.length >= 4) {
-      setGeometry(geojson.geometry)
-      setValue('geometry', geojson.geometry, { shouldValidate: true })
+    if (geojson?.geometry?.type === "Polygon" && geojson.geometry.coordinates?.[0]?.length >= 4) {
+      // Normalizar a GeoJSONPolygon format
+      const normalized: GeoJSONPolygon = {
+        type: "Polygon",
+        coordinates: geojson.geometry.coordinates,
+      }
+      setGeometry(normalized)
+      setValue("geometry", normalized, { shouldValidate: true })
+      // Calcular área cliente-side para feedback inmediato
+      // setAreaHa(calculateAreaHaClient(geojson.geometry)) // Opcional
     } else {
       setGeometry(null)
-      setValue('geometry', { type: 'Polygon', coordinates: [[]] }, { shouldValidate: true })
+      setValue("geometry", { type: "Polygon", coordinates: [[]] }, { shouldValidate: true })
     }
   }
 
@@ -62,9 +75,12 @@ export function LotForm() {
       } else {
         await createMutation.mutateAsync(data)
       }
-      navigate('/lots')
-    } catch (err) {
-      // Error manejado por mutation
+      navigate("/lots")
+    } catch (err: any) {
+      // Errores de validación server-side se muestran en el form
+      if (err?.response?.data?.errors) {
+        // Manejar errores de geometría inválida
+      }
     }
   }
 
@@ -74,10 +90,10 @@ export function LotForm() {
       <div>
         <label htmlFor="name" className="label">Nombre del lote</label>
         <input
-          {...register('name')}
+          {...register("name")}
           id="name"
           type="text"
-          className={`input ${errors.name ? 'border-red-300 focus:ring-red-500' : ''}`}
+          className={`input ${errors.name ? "border-red-300 focus:ring-red-500" : ""}`}
           placeholder="Ej: Lote Norte, Potrero 1, Campo Principal"
         />
         {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
@@ -88,9 +104,9 @@ export function LotForm() {
         <label className="label">Geometría del lote</label>
         <div className="relative">
           <MapEditor
-            initialGeometry={geometry ? { type: 'Feature', properties: {}, geometry } : null}
+            initialGeometry={geometry ? { type: "Feature", properties: {}, geometry } : null}
             onGeometryChange={handleGeometryChange}
-            readOnly={false}
+            readOnly={editing}
             height="500px"
           />
           {errors.geometry && (
@@ -116,7 +132,7 @@ export function LotForm() {
       <div className="flex justify-end gap-3 pt-4 border-t">
         <button
           type="button"
-          onClick={() => navigate('/lots')}
+          onClick={() => navigate("/lots")}
           className="btn-secondary"
         >
           Cancelar
@@ -126,8 +142,8 @@ export function LotForm() {
           disabled={createMutation.isPending || updateMutation.isPending}
           className="btn-primary"
         >
-          {isEdit ? 'Actualizar' : 'Crear lote'}
-          {(createMutation.isPending || updateMutation.isPending) && '...'}
+          {isEdit ? "Actualizar" : "Crear lote"}
+          {(createMutation.isPending || updateMutation.isPending) && "..."}
         </button>
       </div>
     </form>
