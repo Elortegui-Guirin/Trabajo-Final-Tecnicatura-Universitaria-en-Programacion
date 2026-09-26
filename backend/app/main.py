@@ -44,13 +44,11 @@ app.include_router(health.router, tags=["health"])
 
 from app.routers import auth
 from app.routers import lots
+from app.routers import analyses
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(lots.router, prefix="/lots", tags=["lots"])
-
-# TODO: FASE 5 - incluir analyses router
-# from app.routers import analyses
-# app.include_router(analyses.router, prefix="/analyses", tags=["analyses"])
+app.include_router(analyses.router, prefix="/analyses", tags=["analyses"])
 
 @app.get("/", include_in_schema=False)
 async def root():

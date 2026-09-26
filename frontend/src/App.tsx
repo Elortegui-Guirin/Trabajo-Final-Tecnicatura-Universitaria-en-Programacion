@@ -7,6 +7,8 @@ import { DashboardPage } from '@/pages/DashboardPage'
 import { LotsPage } from '@/modules/lots/pages/LotsPage'
 import { LotDetailPage } from '@/modules/lots/pages/LotDetailPage'
 import { LotFormPage } from '@/modules/lots/pages/LotFormPage'
+import { AnalysisHistoryPage } from '@/modules/results/pages/AnalysisHistoryPage'
+import { AnalysisDetailPage } from '@/modules/results/pages/AnalysisDetailPage'
 import { useAuthStore } from '@/modules/auth/store/authStore'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -64,6 +66,8 @@ export function App() {
         <Route path="/lots/new" element={<LotFormPage />} />
         <Route path="/lots/:id" element={<LotDetailPage />} />
         <Route path="/lots/:id/edit" element={<LotFormPage />} />
+        <Route path="/lots/:id/analyses" element={<AnalysisHistoryPage />} />
+        <Route path="/analyses/:id" element={<AnalysisDetailPage />} />
       </Route>
       
       {/* Redirect root */}

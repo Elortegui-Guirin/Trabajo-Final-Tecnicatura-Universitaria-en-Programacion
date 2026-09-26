@@ -1,0 +1,57 @@
+# Prometheus Configuration - GeoForraje
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    project: 'geoforraje'
+    environment: 'production'
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+rule_files: []
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Backend FastAPI metrics
+  - job_name: 'geoforraje-backend'
+    metrics_path: '/metrics'
+    scheme: http
+    static_configs:
+      - targets: ['backend:8000']
+        labels:
+          service: 'geoforraje-api'
+
+  # Node Exporter (host metrics) - opcional
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['host.docker.internal:9100']
+        labels:
+          service: 'node-exporter'
+
+  # PostgreSQL metrics (requiere postgres_exporter)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:9187']
+        labels:
+          service: 'postgres'
+
+  # Redis metrics (requiere redis_exporter)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:9121']
+        labels:
+          service: 'redis'
+
+  # Nginx metrics (requiere nginx-prometheus-exporter)
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:9113']
+        labels:
+          service: 'nginx'
