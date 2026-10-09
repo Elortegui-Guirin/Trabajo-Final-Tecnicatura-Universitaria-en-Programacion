@@ -26,10 +26,14 @@ async def create_analysis(
     Inicia análisis asíncrono de un lote.
     Retorna analysis_id con status=pending; el background task lo procesa.
     """
-    # Verificar que el lote pertenece al usuario
+    # Verificar que el lote pertenece al usuario (y no está soft-deleted)
     from app.models.lot import Lot
     from sqlmodel import select
-    stmt = select(Lot).where(Lot.id == analysis_data.lot_id, Lot.user_id == current_user.id)
+    stmt = select(Lot).where(
+        Lot.id == analysis_data.lot_id, 
+        Lot.user_id == current_user.id,
+        Lot.deleted_at.is_(None)
+    )
     result = await session.exec(stmt)
     lot = result.first()
     if not lot:
@@ -71,8 +75,8 @@ async def list_analyses(
     from app.models.analysis import Analysis
     from sqlmodel import select, func
     
-    # Subquery para lotes del usuario
-    user_lots = select(Lot.id).where(Lot.user_id == current_user.id)
+    # Subquery para lotes del usuario (solo activos)
+    user_lots = select(Lot.id).where(Lot.user_id == current_user.id, Lot.deleted_at.is_(None))
     
     stmt = select(Analysis).where(Analysis.lot_id.in_(user_lots))
     
@@ -104,8 +108,12 @@ async def get_time_series(
     from app.models.lot import Lot
     from sqlmodel import select
     
-    # Verificar ownership
-    stmt = select(Lot).where(Lot.id == lot_id, Lot.user_id == current_user.id)
+    # Verificar ownership (solo lotes activos)
+    stmt = select(Lot).where(
+        Lot.id == lot_id, 
+        Lot.user_id == current_user.id,
+        Lot.deleted_at.is_(None)
+    )
     result = await session.exec(stmt)
     lot = result.first()
     if not lot:
@@ -138,7 +146,11 @@ async def get_analysis(
     stmt = (
         select(Analysis)
         .join(Lot, Analysis.lot_id == Lot.id)
-        .where(Analysis.id == analysis_id, Lot.user_id == current_user.id)
+        .where(
+            Analysis.id == analysis_id, 
+            Lot.user_id == current_user.id,
+            Lot.deleted_at.is_(None)
+        )
     )
     result = await session.exec(stmt)
     analysis = result.first()

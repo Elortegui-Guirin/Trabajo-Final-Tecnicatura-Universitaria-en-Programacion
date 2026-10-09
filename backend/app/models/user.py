@@ -1,15 +1,17 @@
 # Modelo de datos User - SQLModel
 from sqlmodel import SQLModel, Field
 from datetime import datetime, timezone
+from typing import Optional
 
 
 class User(SQLModel, table=True):
-    id: str = Field(default_factory=lambda str: str(__import__("uuid").uuid4()), primary_key=True)
+    id: str = Field(default_factory=lambda: str(__import__("uuid").uuid4()), primary_key=True)
     email: str
     hashed_password: str
     full_name: str | None = None
     is_active: bool = True
     last_login: datetime | None = Field(default=None)
+    deleted_at: datetime | None = Field(default=None)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

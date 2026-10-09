@@ -88,8 +88,8 @@ async def get_lots(
     size: int = 20,
     search: Optional[str] = None
 ) -> Tuple[List[Lot], int]:
-    """Obtiene lotes paginados del usuario."""
-    stmt = select(Lot).where(Lot.user_id == user_id)
+    """Obtiene lotes paginados del usuario (solo activos, sin soft-delete)."""
+    stmt = select(Lot).where(Lot.user_id == user_id, Lot.deleted_at.is_(None))
     
     if search:
         stmt = stmt.where(Lot.name.ilike(f"%{search}%"))
@@ -110,8 +110,12 @@ async def get_lot(
     lot_id: UUID,
     user_id: UUID
 ) -> Optional[Lot]:
-    """Obtiene un lote verificando ownership."""
-    stmt = select(Lot).where(Lot.id == lot_id, Lot.user_id == user_id)
+    """Obtiene un lote verificando ownership (solo activos)."""
+    stmt = select(Lot).where(
+        Lot.id == lot_id, 
+        Lot.user_id == user_id,
+        Lot.deleted_at.is_(None)
+    )
     result = await session.exec(stmt)
     return result.first()
 
@@ -146,12 +150,31 @@ async def delete_lot(
     lot_id: UUID,
     user_id: UUID
 ) -> bool:
-    """Elimina lote verificando ownership."""
+    """Soft delete: marca lote como eliminado (deleted_at)."""
     lot = await get_lot(session, lot_id, user_id)
     if not lot:
         return False
     
-    await session.delete(lot)
+    from datetime import datetime, timezone
+    lot.deleted_at = datetime.now(timezone.utc)
+    await session.commit()
+    return True
+
+
+async def restore_lot(
+    session: AsyncSession,
+    lot_id: UUID,
+    user_id: UUID
+) -> bool:
+    """Restaura un lote soft-deleted."""
+    from sqlmodel import select
+    stmt = select(Lot).where(Lot.id == lot_id, Lot.user_id == user_id)
+    result = await session.exec(stmt)
+    lot = result.first()
+    if not lot or lot.deleted_at is None:
+        return False
+    
+    lot.deleted_at = None
     await session.commit()
     return True
 

@@ -9,13 +9,14 @@ Establecer la fundación técnica del proyecto: repositorio Git estructurado, do
 - `backend/` – Estructura FastAPI + SQLModel + Alembic
   - `backend/app/main.py` – App factory, CORS, routers, lifespan
   - `backend/app/database.py` – Engine asyncpg, session dependency
-  - `backend/app/models/__init__.py` – Modelos SQLModel: User, Lot, Analysis
+  - `backend/app/models/__init__.py` – Modelos SQLModel: User, Lot, Analysis, AuditLog
   - `backend/app/core/config.py` – Settings con Pydantic Settings (env)
   - `backend/app/core/security.py` – Hashing, JWT utils (stubs para Fase 2)
 - `backend/alembic/` – Configuración migraciones
   - `alembic.ini`
   - `alembic/env.py` – Async migration runner
   - `alembic/versions/001_initial_schema.py` – DDL users, lots, analyses
+  - `alembic/versions/003_soft_delete_audit.py` – Soft delete, audit_log, drop view
 - `frontend/` – Estructura React + TypeScript + Vite
   - `frontend/src/main.tsx` – Entry point, providers (QueryClient, Zustand)
   - `frontend/src/App.tsx` – Router principal (React Router v6)
@@ -31,9 +32,10 @@ Establecer la fundación técnica del proyecto: repositorio Git estructurado, do
 ### Backend (FastAPI + SQLModel)
 - **App factory** en `app/main.py`: `create_app()` con lifespan para startup/shutdown (DB pool, workers)
 - **Modelos SQLModel** (`app/models/`):
-  - `User`: id(UUID), email, hashed_password, full_name, created_at, updated_at
-  - `Lot`: id, user_id(FK), name, area_ha, geometry(Geometry), created_at, updated_at
+  - `User`: id(UUID), email, hashed_password, full_name, is_active, last_login, **deleted_at**, created_at, updated_at
+  - `Lot`: id, user_id(FK), name, area_ha, geometry(Geometry), **deleted_at**, created_at, updated_at
   - `Analysis`: id, lot_id(FK), resource_type(Enum), average_rate, raster_file_reference, analyzed_at
+  - `AuditLog`: id, table_name, record_id, action, old_values, new_values, user_id, created_at (evolución futura)
 - **Database** (`app/database.py`): `AsyncEngine` con asyncpg, `async_sessionmaker`, dependency `get_session()`
 - **Config** (`app/core/config.py`): `Settings` con `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGINS`, `RASTER_DATA_PATH`
 - **Alembic** configurado para migraciones **async** (`alembic/env.py` usa `run_async_migrations`)
@@ -53,11 +55,14 @@ Establecer la fundación técnica del proyecto: repositorio Git estructurado, do
   - Tabla `lots` con FK `user_id`, geometría `GEOMETRY(POLYGON, 4326)`, índice GIST
   - Tabla `analyses` con FK `lot_id`, ENUM `resource_type`, índices compuestos
   - Triggers `updated_at` en las 3 tablas
-  - Vista `lots_con_usuario` (join users+lots)
+- **Migración 003** (`alembic/versions/003_soft_delete_audit.py`):
+  - Columna `deleted_at` en `users` y `lots` (soft delete)
+  - Tabla `audit_log` para trazabilidad (evolución futura)
+  - Eliminación de vista `lots_con_usuario` (ORM maneja joins)
 
 ## ✅ Criterios de Aceptación de la Fase
 - [ ] `docker compose up -d` levanta postgres+postgis, backend (8000), frontend (5173), pgadmin (5050) sin errores
-- [ ] `alembic upgrade head` aplica migración 001 y crea tablas con índices espaciales y ENUM
+- [ ] `alembic upgrade head` aplica migraciones 001 y 003 y crea tablas con índices espaciales, ENUM, y columnas deleted_at
 - [ ] `SELECT * FROM users;` y `SELECT * FROM geometry_columns WHERE f_table_name='lots';` retornan estructura esperada
 - [ ] Backend expone `GET /health` → `{"status":"ok"}` y docs en `/docs` (Swagger UI)
 - [ ] Frontend carga en `localhost:5173` sin errores de consola, muestra página base con header
