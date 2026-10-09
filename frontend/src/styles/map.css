@@ -99,6 +99,381 @@
   font-size: 11px;
 }
 
+/* ===== NUEVOS ESTILOS: Panel de validación e información ===== */
+
+.map-editor-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.map-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* Panel de información y validación (solo modo edición) */
+.map-editor-info {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  right: 10px;
+  max-width: 320px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+  font-size: 12px;
+}
+
+.map-editor-info.has-errors {
+  border-color: #fca5a5;
+  background: rgba(254, 242, 242, 0.95);
+}
+
+.map-editor-info.read-only {
+  max-width: 280px;
+  bottom: 10px;
+  left: 10px;
+  right: auto;
+}
+
+.info-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.info-title {
+  font-weight: 600;
+  color: #374151;
+  font-size: 13px;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.info-label {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.info-value {
+  font-weight: 600;
+  color: #1f2937;
+  font-family: monospace;
+  font-size: 12px;
+}
+
+.info-value.error {
+  color: #dc2626;
+}
+
+.info-value.warning {
+  color: #d97706;
+}
+
+.error-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fca5a5;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.warning-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  background: #fffbeb;
+  color: #d97706;
+  border: 1px solid #fcd34d;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+/* Botón de cerrar modo edición */
+.map-editor-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #3388ff;
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  text-align: center;
+  line-height: 28px;
+  cursor: pointer;
+  color: #3388ff;
+  font-size: 18px;
+  transition: background 0.2s;
+}
+
+.map-editor-close:hover {
+  background: #3388ff;
+  color: white;
+}
+
+/* Errores de validación */
+.validation-errors {
+  margin-top: 8px;
+  padding: 8px;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+}
+
+.error-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 4px;
+  color: #dc2626;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.error-item:last-child {
+  margin-bottom: 0;
+}
+
+.error-item svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #dc2626;
+}
+
+/* Advertencias */
+.validation-warnings {
+  margin-top: 8px;
+  padding: 8px;
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+}
+
+.warning-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 4px;
+  color: #d97706;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.warning-item:last-child {
+  margin-bottom: 0;
+}
+
+.warning-item svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #d97706;
+}
+
+/* Botón de cerrar modo edición */
+.map-editor-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  background: rgba(255, 255, 255, 0.9);
+  border: 2px solid #3388ff;
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  text-align: center;
+  line-height: 28px;
+  cursor: pointer;
+  color: #3388ff;
+  font-size: 18px;
+  transition: background 0.2s;
+}
+
+.map-editor-close:hover {
+  background: #3388ff;
+  color: white;
+}
+
+/* Estilos para el control de capas */
+.leaflet-control-layers {
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15);
+}
+
+.leaflet-control-layers .leaflet-control-item {
+  margin: 2px 4px;
+}
+
+.leaflet-control-layers .leaflet-control-item a {
+  color: #333;
+}
+
+/* Estilos para toolbar de draw */
+.pm-toolbar {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 4px 4px 0 0;
+  padding: 4px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15);
+}
+
+.pm-toolbar .button {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  color: #333;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.pm-toolbar .button.active,
+.pm-toolbar .button:hover {
+  background: #e9ecef;
+}
+
+/* Estilo para popups en capas vectoriales */
+.leaflet-popup {
+  width: 200px;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+}
+
+.leaflet-popup-content {
+  padding: 8px 10px;
+}
+
+.leaflet-popup-content p {
+  margin: 0 0 4px 0;
+  font-size: 12px;
+}
+
+/* Estilo para los atributos de capa */
+.leaflet-control-attribution {
+  font-size: 11px;
+}
+
+/* Responsividad */
+@media (max-width: 768px) {
+  .map-editor-wrapper {
+    height: 300px;
+  }
+
+  .map-container {
+    height: 300px;
+  }
+
+  .map-editor-info {
+    left: 5px;
+    right: 5px;
+    bottom: 5px;
+    max-width: none;
+    padding: 10px;
+    font-size: 11px;
+  }
+  
+  .info-title {
+    font-size: 12px;
+  }
+  
+  .info-row {
+    font-size: 11px;
+  }
+  
+  .info-value {
+    font-size: 11px;
+  }
+}
+
+/* Estilos para el control de capas */
+.leaflet-control-layers {
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15);
+}
+
+.leaflet-control-layers .leaflet-control-item {
+  margin: 2px 4px;
+}
+
+.leaflet-control-layers .leaflet-control-item a {
+  color: #333;
+}
+
+/* Estilos para toolbar de draw */
+.pm-toolbar {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 4px 4px 0 0;
+  padding: 4px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15);
+}
+
+.pm-toolbar .button {
+  background: none;
+  border: none;
+  padding: 4px 8px;
+  color: #333;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.pm-toolbar .button.active,
+.pm-toolbar .button:hover {
+  background: #e9ecef;
+}
+
+/* Estilo para popups en capas vectoriales */
+.leaflet-popup {
+  width: 200px;
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15);
+  font-size: 12px;
+}
+
+.leaflet-popup-content {
+  padding: 8px 10px;
+}
+
+.leaflet-popup-content p {
+  margin: 0 0 4px 0;
+  font-size: 12px;
+}
+
+/* Estilo para los atributos de capa */
+.leaflet-control-attribution {
+  font-size: 11px;
+}
+
 /* Responsividad */
 @media (max-width: 768px) {
   .map-editor-wrapper {
