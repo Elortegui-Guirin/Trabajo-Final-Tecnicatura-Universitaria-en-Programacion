@@ -38,5 +38,40 @@ class UserPublic(BaseModel):
     email: EmailStr
     full_name: Optional[str] = None
     created_at: datetime
+    email_verified: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+# === Nuevos esquemas para mejoras Fase 2 ===
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+    model_config = {"from_attributes": True}
+
+
+class ResendVerificationRequest(BaseModel):
+    email: EmailStr
+
+    model_config = {"from_attributes": True}
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+    model_config = {"from_attributes": True}
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8, description="Mínimo 8 caracteres")
+    confirm_password: str
+
+    model_config = {"from_attributes": True}
+
+
+class AuthMessageResponse(BaseModel):
+    message: str
 
     model_config = {"from_attributes": True}

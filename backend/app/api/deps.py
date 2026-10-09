@@ -3,9 +3,10 @@ from typing import Generator
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 from sqlmodel.ext.asyncio.session import AsyncSession
+from jose import JWTError
 
 from app.db.database import async_session_maker
-from app.core.security import decode_token, SECRET_KEY, ALGORITHM
+from app.core.security import decode_token
 from app.models.user import User
 from sqlmodel import select
 
@@ -45,6 +46,13 @@ async def get_current_user(
         raise credentials_exception
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Inactive user")
+    if user.deleted_at:
+        raise HTTPException(status_code=403, detail="User deleted")
+    if user.is_locked():
+        raise HTTPException(
+            status_code=status.HTTP_423_LOCKED,
+            detail="Account temporarily locked due to failed login attempts"
+        )
     return user
 
 

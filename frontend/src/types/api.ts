@@ -6,6 +6,7 @@ export interface UserPublic {
   email: string
   full_name: string
   created_at: string
+  email_verified: boolean
 }
 
 export interface UserRegister {
@@ -27,6 +28,29 @@ export interface TokenResponse {
 
 export interface TokenRefresh {
   refresh_token: string
+}
+
+// === Nuevos tipos para mejoras Fase 2 ===
+export interface VerifyEmailRequest {
+  token: string
+}
+
+export interface ResendVerificationRequest {
+  email: string
+}
+
+export interface ForgotPasswordRequest {
+  email: string
+}
+
+export interface ResetPasswordRequest {
+  token: string
+  new_password: string
+  confirm_password: string
+}
+
+export interface AuthMessageResponse {
+  message: string
 }
 
 export interface LotCreate {

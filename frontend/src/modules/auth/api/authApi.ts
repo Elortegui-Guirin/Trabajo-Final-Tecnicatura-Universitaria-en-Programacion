@@ -1,6 +1,10 @@
 // Auth API Client
 import axios from 'axios'
-import type { UserRegister, UserLogin, TokenResponse, TokenRefresh, UserPublic } from '@/types/api'
+import type { 
+  UserRegister, UserLogin, TokenResponse, TokenRefresh, UserPublic,
+  VerifyEmailRequest, ResendVerificationRequest,
+  ForgotPasswordRequest, ResetPasswordRequest, AuthMessageResponse
+} from '@/types/api'
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
@@ -82,6 +86,13 @@ export const authApi = {
   login: (data: UserLogin) => api.post<TokenResponse>('/auth/login', data),
   refresh: (data: TokenRefresh) => api.post<TokenResponse>('/auth/refresh', data),
   me: () => api.get<UserPublic>('/auth/me'),
+  
+  // Nuevos endpoints Fase 2
+  verifyEmail: (data: VerifyEmailRequest) => api.post<AuthMessageResponse>('/auth/verify-email', data),
+  resendVerification: (data: ResendVerificationRequest) => api.post<AuthMessageResponse>('/auth/resend-verification', data),
+  forgotPassword: (data: ForgotPasswordRequest) => api.post<AuthMessageResponse>('/auth/forgot-password', data),
+  resetPassword: (data: ResetPasswordRequest) => api.post<AuthMessageResponse>('/auth/reset-password', data),
+  logout: () => api.post<AuthMessageResponse>('/auth/logout'),
 }
 
 export default api
