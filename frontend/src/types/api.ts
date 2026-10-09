@@ -53,6 +53,7 @@ export interface AuthMessageResponse {
   message: string
 }
 
+// === Lotes (Fase 3 + mejoras) ===
 export interface LotCreate {
   name: string
   geometry: GeoJSONPolygon
@@ -61,6 +62,7 @@ export interface LotCreate {
 export interface LotUpdate {
   name?: string
   geometry?: GeoJSONPolygon
+  change_reason?: string
 }
 
 export interface GeoJSONPolygon {
@@ -75,6 +77,19 @@ export interface LotRead {
   geometry: GeoJSONPolygon
   created_at: string
   updated_at: string
+  deleted_at?: string
+}
+
+export interface LotVersionRead {
+  id: string
+  lot_id: string
+  version_number: number
+  name: string
+  area_ha: number
+  geometry: GeoJSONPolygon
+  changed_by: string
+  change_reason?: string
+  created_at: string
 }
 
 export interface LotListResponse {
@@ -82,6 +97,17 @@ export interface LotListResponse {
   total: number
   page: number
   size: number
+}
+
+// Parámetros de búsqueda avanzada
+export interface LotSearchParams {
+  search?: string
+  date_from?: string
+  date_to?: string
+  area_min?: number
+  area_max?: number
+  bbox?: string // "min_lon,min_lat,max_lon,max_lat"
+  include_deleted?: boolean
 }
 
 export type ResourceType = 'resource_1' | 'resource_2' | 'resource_3' | 'resource_4'

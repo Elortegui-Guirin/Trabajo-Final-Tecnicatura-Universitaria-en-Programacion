@@ -1,17 +1,21 @@
 // Hooks para lotes - TanStack Query
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { lotsApi } from '@/modules/lots/api/lotsApi'
-import type { LotCreate, LotUpdate, LotRead, LotListResponse } from '@/types/api'
+import type { 
+  LotCreate, LotUpdate, LotRead, LotListResponse, 
+  LotVersionRead, LotSearchParams 
+} from '@/types/api'
 
 // Query keys
 export const lotKeys = {
   all: ['lots'] as const,
   lists: () => [...lotKeys.all, 'list'] as const,
-  list: (params: { page?: number; size?: number; search?: string }) => [...lotKeys.lists(), params] as const,
+  list: (params: LotSearchParams & { page?: number; size?: number }) => [...lotKeys.lists(), params] as const,
   detail: (id: string) => [...lotKeys.all, 'detail', id] as const,
+  versions: (id: string) => [...lotKeys.all, 'versions', id] as const,
 }
 
-export function useLots(params?: { page?: number; size?: number; search?: string }) {
+export function useLots(params?: LotSearchParams & { page?: number; size?: number }) {
   return useQuery({
     queryKey: lotKeys.list(params || {}),
     queryFn: () => lotsApi.list(params),
@@ -22,6 +26,14 @@ export function useLot(id: string) {
   return useQuery({
     queryKey: lotKeys.detail(id),
     queryFn: () => lotsApi.get(id),
+    enabled: !!id,
+  })
+}
+
+export function useLotVersions(id: string) {
+  return useQuery({
+    queryKey: lotKeys.versions(id),
+    queryFn: () => lotsApi.getVersions(id),
     enabled: !!id,
   })
 }
@@ -43,6 +55,7 @@ export function useUpdateLot() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: lotKeys.detail(variables.id) })
       queryClient.invalidateQueries({ queryKey: lotKeys.lists() })
+      queryClient.invalidateQueries({ queryKey: lotKeys.versions(variables.id) })
     },
   })
 }
@@ -51,6 +64,16 @@ export function useDeleteLot() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => lotsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: lotKeys.lists() })
+    },
+  })
+}
+
+export function useRestoreLot() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => lotsApi.restore(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: lotKeys.lists() })
     },

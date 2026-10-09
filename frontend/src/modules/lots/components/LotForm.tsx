@@ -15,7 +15,8 @@ const lotSchema = z.object({
     coordinates: z.array(
       z.array(z.array(z.number()))
     ), // [[[lon, lat], ...], [[lon, lat], ...]] para interiores
-  ]),
+  }),
+  change_reason: z.string().max(500).optional(),
 })
 
 type LotFormData = z.infer<typeof lotSchema>
@@ -40,28 +41,24 @@ export function LotForm() {
     watch,
   } = useForm<LotFormData>({
     resolver: zodResolver(lotSchema),
-    defaultValues: { name: "", geometry: { type: "Polygon", coordinates: [[]] } },
+    defaultValues: { name: "", geometry: { type: "Polygon", coordinates: [[]] }, change_reason: "" },
   })
 
-  // Si es edición, cargar datos
+  // Si es edición, cargar datos (en implementación real usaríamos useLot hook)
   useEffect(() => {
     if (isEdit && id) {
-      // Cargar lote existente - en implementación real usaríamos useLot hook
-      // Por ahora el geometry viene del prop o state
+      // Cargar lote existente
     }
   }, [isEdit, id])
 
   const handleGeometryChange = (geojson: any) => {
     if (geojson?.geometry?.type === "Polygon" && geojson.geometry.coordinates?.[0]?.length >= 4) {
-      // Normalizar a GeoJSONPolygon format
       const normalized: GeoJSONPolygon = {
         type: "Polygon",
         coordinates: geojson.geometry.coordinates,
       }
       setGeometry(normalized)
       setValue("geometry", normalized, { shouldValidate: true })
-      // Calcular área cliente-side para feedback inmediato
-      // setAreaHa(calculateAreaHaClient(geojson.geometry)) // Opcional
     } else {
       setGeometry(null)
       setValue("geometry", { type: "Polygon", coordinates: [[]] }, { shouldValidate: true })
@@ -71,15 +68,22 @@ export function LotForm() {
   const onSubmit = async (data: LotFormData) => {
     try {
       if (isEdit && id) {
-        await updateMutation.mutateAsync({ id, data: { name: data.name, geometry: data.geometry } })
+        await updateMutation.mutateAsync({ 
+          id, 
+          data: { 
+            name: data.name, 
+            geometry: data.geometry, 
+            change_reason: data.change_reason 
+          } 
+        })
       } else {
         await createMutation.mutateAsync(data)
       }
       navigate("/lots")
     } catch (err: any) {
-      // Errores de validación server-side se muestran en el form
-      if (err?.response?.data?.errors) {
-        // Manejar errores de geometría inválida
+      // Errores de validación server-side
+      if (err?.response?.data?.detail) {
+        // Manejar errores de geometría/área inválida
       }
     }
   }
@@ -98,6 +102,21 @@ export function LotForm() {
         />
         {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>}
       </div>
+
+      {/* Motivo del cambio (solo edición) */}
+      {isEdit && (
+        <div>
+          <label htmlFor="change_reason" className="label">Motivo del cambio (opcional)</label>
+          <textarea
+            {...register("change_reason")}
+            id="change_reason"
+            rows={3}
+            className="input"
+            placeholder="Ej: Corrección de límites, ampliación de área, rotación de cultivos..."
+          />
+          {errors.change_reason && <p className="mt-1 text-sm text-red-600">{errors.change_reason.message}</p>}
+        </div>
+      )}
 
       {/* Mapa */}
       <div>
@@ -124,7 +143,7 @@ export function LotForm() {
             <span className="text-gray-600">Área calculada (aprox):</span>
             <span className="text-2xl font-bold text-primary-600">{areaHa.toFixed(2)} ha</span>
           </div>
-          <p className="text-xs text-gray-500 mt-1">Valor definitivo calculado por el servidor al guardar</p>
+          <p className="text-xs text-gray-500 mt-1">Valor definitivo calculado por el servidor al guardar (mín. 0.01 ha)</p>
         </div>
       )}
 
