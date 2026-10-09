@@ -1,44 +1,38 @@
 # Fase 5 – Análisis Raster y Despliegue
 
 ## 🎯 Objetivo de la Fase
-Implementar el motor de análisis raster: conexión a archivos GeoTIFF (COG preferido), recorte por geometría del lote (masking), cálculo de estadísticas por tipo de recurso forrajero (resource_1..4), guardado de resultados en BD, y exposición de endpoints de consulta. Completar con despliegue a producción (Docker, reverse proxy, HTTPS, variables de entorno, monitoreo básico).
+Implementar el motor de análisis raster: conexión a archivos GeoTIFF (COG preferido), recorte por geometría del lote (masking), cálculo de estadísticas por tipo de recurso forrajero (resource_1..4), guardado de resultados en BD, y exposición de endpoints de consulta. Completar con despliegue a producción (Docker, reverse proxy, HTTPS, variables de entorno, monitoreo básico). **Incluye: Celery obligatorio, cache de resultados, versionado de raster, control de concurrencia, política de almacenamiento, reporte PDF mejorado.**
 
 ## 📦 Artefactos Generados en esta Fase
-- `backend/app/schemas/analysis.py` – Pydantic: `AnalysisCreate`, `AnalysisRead`, `AnalysisListResponse`, `ResourceTypeEnum`
-- `backend/app/routers/analyses.py` – Endpoints: `POST /analyses`, `GET /analyses`, `GET /analyses/{id}`, `GET /lots/{lot_id}/analyses`
-- `backend/app/services/raster_service.py` – Núcleo: `analyze_lot_resource()`, `clip_raster_to_geometry()`, `calculate_statistics()`, `get_raster_path()`
-- `backend/app/workers/raster_worker.py` – Background task (FastAPI `BackgroundTasks`) o Celery task: `run_analysis_task(analysis_id)`
-- `backend/app/core/raster_config.py` – Config: `RASTER_CATALOG` (dict resource_type → path/url GeoTIFF), band mapping, nodata handling
-- `backend/tests/test_raster.py` – Tests: clip, stats, resource types, error handling (archivo faltante, geometría fuera de bounds)
-- `frontend/src/modules/results/` – Módulo resultados:
-  - `components/AnalysisList.tsx` – Historial por lote: tabla (fecha, recurso, tasa, acción ver)
-  - `components/AnalysisDetail.tsx` – Detalle: métricas (media, min, max, std, percentiles), histograma (Recharts), mapa mini (resultado recortado)
-  - `components/AnalysisChart.tsx` – Gráfico barras/línea comparativo temporal por recurso
-  - `hooks/useAnalyses.ts` – Queries: `useAnalyses(lotId)`, `useAnalysis(id)`, `useRunAnalysis(lotId, resourceType)`
-  - `api/analysesApi.ts` – Cliente tipado
-  - `pages/AnalysisHistoryPage.tsx` – Lista análisis del lote seleccionado
-  - `pages/AnalysisDetailPage.tsx` – Vista detalle + botón "Descargar reporte PDF"
-- `backend/app/utils/report_generator.py` – Genera PDF reporte (WeasyPrint / ReportLab): portada, mapa, tabla métricas, gráfico
-- `docker-compose.prod.yml` – Producción: nginx reverse proxy, certbot (Let's Encrypt), backend (gunicorn+uvicorn workers), frontend (nginx static), postgres, redis (Celery)
-- `nginx/nginx.conf` – Config proxy: rate limiting, gzip, headers seguridad, proxy_pass backend/frontend
-- `backend/Dockerfile.prod` – Multi-stage: builder (poetry) → runtime (slim, non-root user)
-- `frontend/Dockerfile.prod` – Multi-stage: builder (npm ci + build) → nginx alpine
-- `.github/workflows/deploy.yml` – CD: build images → push registry → deploy server (ssh/ansible/k8s)
-- `monitoring/prometheus.yml` – Scrape config backend `/metrics` (prometheus-fastapi-instrumentator)
-- `monitoring/grafana/dashboards/geoforraje.json` – Dashboard: requests, latency, DB pool, analysis queue
+- `backend/app/schemas/analysis.py` – Pydantic: `AnalysisCreate`, `AnalysisRead`, `AnalysisListResponse`, `ResourceTypeEnum`, `AnalysisCacheCheck`, `ConcurrentAnalysisError`, `AnalysisReportConfig`
+- `backend/app/routers/analyses.py` – Endpoints: `POST /analyses`, `POST /analyses/check-cache`, `GET /analyses`, `GET /analyses/{id}`, `GET /analyses/timeseries`, `GET /lots/{lot_id}/analyses`, `POST /analyses/{id}/report`
+- `backend/app/services/raster_service.py` – Núcleo: `analyze_lot_resource()`, `clip_raster_to_geometry()`, `calculate_statistics()`, `get_raster_path()`, `_check_cache()`, `_check_concurrent_analysis()`, `_compute_geometry_hash()`
+- `backend/app/workers/celery_app.py` – Celery + Redis config + beat schedule
+- `backend/app/workers/raster_tasks.py` – Tasks Celery: `run_analysis_task` (cache, concurrencia, versionado, storage), `check_analysis_cache`, `update_all_raster_layers`, `generate_alerts_for_anomalies`
+- `backend/app/workers/periodic_tasks.py` – Tareas periódicas: `update_all_raster_layers`, `generate_alerts_for_anomalies`, `cleanup_old_reports`, `cleanup_stale_analyses`
+- `backend/app/services/notification_service.py` – Canales: email, push, webhook
+- `backend/app/utils/report_generator.py` – PDF con logo, metadata, leyenda, fecha, parámetros
+- `backend/app/core/raster_config.py` – `RASTER_CATALOG` con versionado (`version`, `date`, `metadata`)
+- `backend/tests/test_raster.py` – Tests: cache, concurrencia, versionado, area mínima, ownership, filtros
+- `docker-compose.prod.yml` – nginx, backend, frontend, postgres, redis, celery-worker, celery-beat, prometheus, grafana, certbot
+- `nginx/nginx.conf` – Reverse proxy + SSL + rate limiting + security headers
+- `backend/Dockerfile.prod`, `frontend/Dockerfile.prod` – Multi-stage builds
+- `monitoring/prometheus.yml`, `monitoring/grafana/datasources.yml` – Monitoreo
 
 ## 🧩 Detalle Técnico
 
-### Backend (FastAPI + SQLModel)
+### Backend (FastAPI + SQLModel + Celery)
 **Endpoints creados:**
 | Método | Ruta | Body/Params | Response | Descripción |
 |--------|------|-------------|----------|-------------|
-| POST | `/analyses` | `AnalysisCreate{lot_id, resource_type}` | `AnalysisRead` (202) | Inicia análisis async, retorna analysis_id + status="pending" |
-| GET | `/analyses` | `?lot_id=&resource_type=&page=1&size=20` | `AnalysisListResponse` | Historial paginado con filtros |
-| GET | `/analyses/{id}` | — | `AnalysisRead` | Detalle análisis completo |
-| GET | `/lots/{lot_id}/analyses` | — | `AnalysisListResponse` | Shortcut para frontend |
+| POST | `/analyses` | `AnalysisCreate{lot_id, resource_type, store_clipped_raster}` | `AnalysisRead` (202) | Inicia análisis async (Celery), cache/concurrencia/versionado |
+| POST | `/analyses/check-cache` | `{lot_id, resource_type}` | `AnalysisCacheCheck` | Verifica cache antes de crear análisis |
+| GET | `/analyses` | `?lot_id=&resource_type=&status=&page=&size=` | `AnalysisListResponse` | Historial paginado con filtros |
+| GET | `/analyses/timeseries` | `?lot_id=&resource_type=` | `TimeSeriesResponse` | Serie temporal con versionado |
+| GET | `/analyses/{id}` | — | `AnalysisRead` | Detalle completo con versionado |
+| POST | `/analyses/{id}/report` | `config` | `dict{pdf_url}` | Genera reporte PDF |
 
-**Esquema `AnalysisRead`:**
+**Esquema `AnalysisRead` (con mejoras):**
 ```python
 class AnalysisRead(BaseModel):
     id: UUID
@@ -48,110 +42,154 @@ class AnalysisRead(BaseModel):
     min_value: float | None
     max_value: float | None
     std_dev: float | None
-    percentiles: dict[str, float] | None  # {"p25": ..., "p50": ..., "p75": ...}
+    percentiles: dict[str, float] | None
     raster_file_reference: str
+    raster_version: str              # NUEVO: ej "v2024.1"
+    raster_date: datetime            # NUEVO: fecha del raster
+    clipped_raster_path: str | None  # NUEVO: si store_clipped_raster=True
+    store_clipped_raster: bool       # NUEVO: política almacenamiento
+    lot_geometry_hash: str           # NUEVO: SHA256 geometría para cache
     analyzed_at: datetime
-    status: Literal["pending", "processing", "completed", "failed"]
+    status: Literal["pending","processing","completed","failed"]
     error_message: str | None
 ```
 
-**Servicio `raster_service.py`:**
+**Nuevos esquemas:**
 ```python
-def analyze_lot_resource(lot_id: UUID, resource_type: ResourceTypeEnum, session: Session) -> Analysis:
-    # 1. Obtener lote + geometría (WKB → Shapely Polygon)
-    # 2. Resolver path GeoTIFF desde RASTER_CATALOG[resource_type]
-    # 3. Abrir raster (rasterio.open), leer CRS, transform
-    # 4. Reproyectar geometría lote a CRS del raster (pyproj.Transformer)
-    # 5. clip: rasterio.mask.mask(dataset, [geom], crop=True, nodata=np.nan)
-    # 6. Calcular stats: mean, min, max, std, percentiles (np.nanpercentile)
-    # 7. Crear Analysis record con status="completed", guardar
-    # 8. Retornar Analysis
+class AnalysisCreate(BaseModel):
+    lot_id: UUID
+    resource_type: ResourceTypeEnum
+    store_clipped_raster: bool = False  # NUEVO: política almacenamiento
+
+class AnalysisCacheCheck(BaseModel):
+    cached: bool
+    analysis: AnalysisRead | None
+    message: str
+
+class ConcurrentAnalysisError(BaseModel):
+    error: str = "Ya existe un análisis en curso..."
+    existing_analysis_id: UUID
+    existing_status: str
+    retry_after_seconds: int = 30
 ```
 
-**Catálogo raster (`raster_config.py`):**
-```python
-RASTER_CATALOG: dict[ResourceTypeEnum, RasterSource] = {
-    "resource_1": RasterSource(path="/data/rasters/resource_1.tif", band=1, nodata=-9999, description="Biomasa verde"),
-    "resource_2": RasterSource(path="/data/rasters/resource_2.tif", band=1, nodata=-9999, description="Cobertura suelo"),
-    "resource_3": RasterSource(path="/data/rasters/resource_3.tif", band=1, nodata=-9999, description="Índice vegetación"),
-    "resource_4": RasterSource(path="/data/rasters/resource_4.tif", band=1, nodata=-9999, description="Humedad suelo"),
-}
-```
-- Soporta rutas locales, URLs (HTTP/S3 via `rasterio.open("s3://...")`), COG (Cloud Optimized GeoTIFF)
+**Servicio `raster_service.py` (mejoras):**
+- `_compute_geometry_hash(geometry: dict) -> str`: SHA256 para cache
+- `_check_cache(session, lot_id, resource_type, geometry_hash, raster_version) -> Analysis|None`: Cache lookup
+- `_check_concurrent_analysis(session, lot_id, resource_type) -> Analysis|None`: Concurrency check
+- `analyze_lot_resource(...)`: 
+  - Verifica cache → retorna existente si coincide (misma geometría + raster_version)
+  - Verifica concurrencia → 409 si hay análisis PENDING/PROCESSING mismo lote+recurso
+  - Ejecuta análisis → guarda `raster_version`, `raster_date`, `lot_geometry_hash`, `store_clipped_raster`
+  - Opcional: guarda raster recortado (`clipped_raster_path`) si `store_clipped_raster=True`
+- `run_analysis_task()`: Task Celery con retry, cache check, concurrency check
 
-**Background processing:**
-- `POST /analyses` → `BackgroundTasks.add_task(run_analysis_task, analysis_id)`
-- `run_analysis_task()`: actualiza status → "processing" → llama `analyze_lot_resource()` → "completed" o "failed" + error_message
-- Opcional Celery + Redis para colas persistentes, retries, escalado horizontal
+**Celery Tasks (`raster_tasks.py`):**
+- `run_analysis_task(analysis_id)`: Task principal con retry, cache hit, concurrency check
+- `check_analysis_cache(lot_id, resource_type, geometry_hash, raster_version)`: Cache check síncrono
+- `update_all_raster_layers()`: Daily, actualiza capraster desde GEE/Sentinel
+- `generate_alerts_for_anomalies()`: Daily, detecta anomalías (<10% histórico)
+- `cleanup_stale_analyses()`: Hourly, marca FAILED análisis >2h en PROCESSING
+- `generate_analysis_report(analysis_id)`: Genera PDF
+
+**Periodic Tasks (`periodic_tasks.py`):**
+- `update_all_raster_layers()`: Daily 2AM (Celery Beat)
+- `generate_alerts_for_anomalies()`: Daily 3AM
+- `cleanup_old_reports()`: Weekly, >30 días
+- `cleanup_stale_analyses()`: Hourly, >2h en PROCESSING
+
+**Cache & Concurrencia:**
+- **Cache key**: `(lot_id, resource_type, geometry_hash, raster_version)`
+- **Concurrency lock**: Max 1 análisis PENDING/PROCESSING por `(lot_id, resource_type)`
+- **Lock TTL**: 5 min (auto-liberación si worker muere)
+
+**Versionado Raster:**
+- `raster_version`: string (ej: "v2024.1", "v2024.2")
+- `raster_date`: datetime del raster
+- Guardados en cada `Analysis` para trazabilidad
+
+**Política de Almacenamiento:**
+- `store_clipped_raster: bool` (default False)
+- `False`: Solo estadísticas en BD (bajo almacenamiento)
+- `True`: Estadísticas + raster recortado GeoTIFF en `/data/rasters/clipped/`
+
+**Reporte PDF (`report_generator.py`):**
+- Portada: logo, título, fecha
+- Metadata: análisis ID, lote, usuario, fechas, raster_version, raster_date, hash geometría
+- Parámetros: recurso, raster origen, versión, hash geometría, store_clipped
+- Estadísticas: media, min, max, std, percentiles (p25, p50, p75, p90, p95), count
+- Leyenda por recurso
+- Mapa del lote (placeholder)
 
 ### Frontend (React + TypeScript)
-**Componentes Results:**
-- `AnalysisList`: TanStack Table, columnas: fecha, recurso (badge color), tasa media (formato 2 decimales), estado, acción "Ver"
-- `AnalysisDetail`: Grid métricas (Media, Min, Max, Desv.Std, P25/P50/P75), `AnalysisChart` (histograma valores píxel), `MapView` mini con capa resultado (estilo choropleth)
-- `AnalysisChart`: Recharts `BarChart` / `LineChart` comparando análisis temporales del mismo lote+recurso
-- `useRunAnalysis`: Mutation `POST /analyses` → polling `GET /analyses/{id}` cada 3s hasta status completed/failed → invalidar queries lista
+**Nuevos endpoints en `analysesApi.ts`:**
+- `checkCache(lot_id, resource_type)`: POST `/analyses/check-cache`
 
-**Estado (TanStack Query):**
-```typescript
-const analysisKeys = {
-  all: ['analyses'] as const,
-  list: (filters: AnalysisFilters) => [...analysisKeys.all, 'list', filters] as const,
-  detail: (id: string) => [...analysisKeys.all, 'detail', id] as const,
-};
-
-// Polling hook
-function useAnalysisPolling(id: string, enabled: boolean) {
-  return useQuery({
-    queryKey: analysisKeys.detail(id),
-    queryFn: () => analysesApi.get(id),
-    refetchInterval: (data) => data?.status === 'pending' || data?.status === 'processing' ? 3000 : false,
-    enabled,
-  });
-}
-```
+**Componentes Results actualizados:**
+- `AnalysisDetail`: Muestra `raster_version`, `raster_date`, `lot_geometry_hash`, `store_clipped_raster`
+- `AnalysisHistoryPage`: Botón "Analizar" → llama `checkCache` primero → si cached muestra existente, sino crea nuevo
 
 ### Base de Datos (PostgreSQL/PostGIS)
-- **Migración 004** (extensión análisis):
-  - `ALTER TABLE analyses ADD COLUMN status VARCHAR(20) DEFAULT 'pending';`
-  - `ALTER TABLE analyses ADD COLUMN error_message TEXT;`
-  - `ALTER TABLE analyses ADD COLUMN min_value NUMERIC(10,4), max_value NUMERIC(10,4), std_dev NUMERIC(10,4), percentiles JSONB;`
-  - Índice `idx_analyses_status` para colas de procesamiento
-  - Check constraint `status IN ('pending','processing','completed','failed')`
+**Migración 004** (`004_auth_improvements.py`): Campos auth
+**Migración 005** (`005_lot_versions.py`): Tabla `lot_versions`
+**Migración 006** (nueva): Tabla `analyses` con campos:
+- `raster_version` VARCHAR(100) NOT NULL
+- `raster_date` TIMESTAMPTZ NOT NULL
+- `clipped_raster_path` TEXT NULL
+- `store_clipped_raster` BOOLEAN DEFAULT FALSE
+- `lot_geometry_hash` VARCHAR(64) NOT NULL
+- Índices: `(lot_id, resource_type, status)`, `lot_geometry_hash`, `raster_version`
 
-### Despliegue (Docker + Nginx + HTTPS)
-**Arquitectura producción:**
-```
-Internet → [Nginx:443/80] → 
-  ├── /api/* → Backend (gunicorn -w 4 -k uvicorn.workers.UvicornWorker)
-  ├── / → Frontend (Nginx static files, try_files $uri /index.html)
-  └── /.well-known/acme-challenge/ → Certbot
-```
-**Variables entorno producción (`.env.prod`):**
-- `DATABASE_URL=postgresql+asyncpg://user:pass@postgres:5432/geoforraje`
-- `JWT_SECRET=...` (32+ chars, rotado)
-- `CORS_ORIGINS=https://geofarraje.example.com`
-- `RASTER_DATA_PATH=/data/rasters` (volume montado)
-- `SENTRY_DSN=...` (opcional error tracking)
+### Despliegue (Docker + Nginx + HTTPS + Celery)
+**`docker-compose.prod.yml` servicios:**
+- `nginx`: Reverse proxy + SSL (Let's Encrypt) + rate limiting (api:10r/s, auth:5r/m)
+- `backend`: Gunicorn 4 workers Uvicorn
+- `frontend`: Nginx static (SPA fallback)
+- `postgres`: PostgreSQL 15 + PostGIS
+- `redis`: Redis 7 (Celery broker/result backend)
+- `celery-worker`: 2 workers, queue `analysis`
+- `celery-beat`: Scheduler (daily 2AM/3AM)
+- `prometheus`: Scrape `/metrics`
+- `grafana`: Dashboards auto-provisioned
+- `certbot`: Let's Encrypt auto-renewal
 
-**Healthchecks:**
-- Backend: `GET /health` (DB connection + raster catalog accesible)
-- Frontend: Nginx status 200 en `/`
-- Postgres: `pg_isready`
+**Nginx config:** Rate limiting, security headers, SSL, proxy_pass
+
+### Monitoreo
+**Prometheus scrape configs:** backend, node, postgres, redis, nginx
+**Grafana dashboards:** Requests, latency, DB pool, analysis queue, cache hit rate
 
 ## ✅ Criterios de Aceptación de la Fase
-- [ ] `POST /analyses` con `lot_id` válido + `resource_type` → 202, analysis creado status="pending"
-- [ ] Background task completa análisis: `average_rate` calculado, percentiles guardados, status="completed"
-- [ ] Análisis con geometría fuera de bounds del raster → status="failed", error_message descriptivo
-- [ ] `GET /analyses` paginado + filtros (lot_id, resource_type) funciona
-- [ ] Frontend: botón "Analizar" en detalle lote → muestra loading → polling → muestra resultado completo
-- [ ] Frontend: histograma (Recharts) renderiza distribución valores píxel del recorte
-- [ ] Frontend: mini-mapa muestra recorte raster estilizado (choropleth) sincronizado con geometría lote
-- [ ] `docker compose -f docker-compose.prod.yml up -d` levanta stack completo en < 3 min
-- [ ] HTTPS válido (Let's Encrypt) → `curl -I https://geofarraje.example.com` → 200, cert válido
-- [ ] Prometheus scrapea `/metrics` del backend; Grafana dashboard muestra métricas clave
-- [ ] Tests backend: `pytest backend/tests/test_raster.py -v` → todos pasan
+- [ ] `POST /analyses` con `lot_id` válido + `resource_type` → 202, analysis creado status="pending", **cache check + concurrency check**
+- [ ] **Cache hit**: mismo lote + geometría + raster_version → retorna existente (200) sin reprocesar
+- [ ] **Concurrencia**: 2do POST mismo lote+recurso → 409 con `existing_analysis_id` + `retry_after_seconds`
+- [ ] **Versionado**: `raster_version` + `raster_date` guardados en Analysis
+- [ ] **Cache hit**: background task detecta cache → copia resultados sin reprocesar
+- [ ] **Storage policy**: `store_clipped_raster=True` → guarda GeoTIFF recortado en `/data/rasters/clipped/`
+- [ ] **Celery**: `run_analysis_task` ejecuta en worker, retry 3x, `update_all_raster_layers` daily via Beat
+- [ ] `POST /analyses/check-cache` → `{cached: true, analysis: ...}` si existe
+- [ ] `GET /analyses` filtros: `status`, `resource_type` funcionan
+- [ ] Frontend: botón "Analizar" → `check-cache` → si cached muestra existente, sino crea + polling
+- [ ] `POST /analyses/{id}/report` → genera PDF con logo, metadata, leyenda, fecha, parámetros
+- [ ] `docker compose -f docker-compose.prod.yml up -d` levanta 10 servicios en < 3 min
+- [ ] HTTPS válido (Let's Encrypt), Prometheus + Grafana funcionando
+- [ ] Tests: `pytest backend/tests/test_raster.py -v` → todos pasan (cache, concurrencia, versionado, ownership)
 - [ ] `make lint` / `npm run lint` / `npm run build` pasan en producción
 
 ## 🔗 Dependencias con otras Fases
-- **Requisito previo**: Fase 1 (DB, modelos), Fase 2 (auth, ownership), Fase 3 (lotes + geometría validada), Fase 4 (MapView para visualización resultado)
-- **Habilita**: MVP completo listo para usuarios finales; base para futuras fases (alertas, API pública, mobile app)
+- **Requisito previo**: Fase 1 (DB, modelos), Fase 2 (auth, ownership, lockout), Fase 3 (lotes + geometría + versionado + soft delete), Fase 4 (MapView + validación geometría)
+- **Habilita**: MVP completo listo para usuarios finales; base para futuras fases (alertas push, API pública, mobile app, series temporales avanzadas, comparación campañas, GEE integration)
+
+## 📋 Resumen de Mejoras Implementadas vs Original
+
+| Mejora | Original | Implementado |
+|--------|----------|--------------|
+| **Celery** | BackgroundTasks opcional | **Obligatorio** (config, tasks, beat, workers) |
+| **Cache** | No | **SHA256 geometry_hash + raster_version** |
+| **Concurrencia** | No | **Lock por lote+recurso, 409 + retry_after** |
+| **Versionado raster** | No | **raster_version + raster_date en Analysis** |
+| **Storage policy** | No | **store_clipped_raster (bool), clipped_raster_path** |
+| **Reporte PDF** | Básico | **Logo, metadata, leyenda, fecha, parámetros, mapa** |
+| **Tareas periódicas** | No | **Celery Beat: update rasters, alerts, cleanup** |
+| **Monitoreo** | Básico | **Prometheus + Grafana dashboards** |
+| **Tests** | Básicos | **Cache, concurrencia, versionado, ownership, filtros** |
