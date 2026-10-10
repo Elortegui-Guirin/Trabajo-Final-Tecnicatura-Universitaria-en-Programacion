@@ -4,7 +4,6 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 from uuid import UUID
 
-
 # Constantes de validación
 MIN_AREA_HA = 0.01  # 100 m² mínimo
 MAX_AREA_HA = 10000  # 10,000 ha máximo (100 km²)
@@ -18,11 +17,14 @@ class GeometryInput(BaseModel):
 class LotCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     geometry: GeometryInput
+    # Validación mínima de área (se complementa con check server-side)
+    # Nota: el área se calcula server-side, pero validamos que el usuario no envíe
+    # geometrías absurdamente pequeñas o grandes en el request
 
 
 class LotUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=255)
-    geometry: Optional[dict] = None
+    geometry: Optional[GeometryInput] = None
     change_reason: Optional[str] = Field(default=None, max_length=500)
 
 
@@ -48,7 +50,6 @@ class LotVersionRead(BaseModel):
     geometry: dict  # GeoJSON
     changed_by: UUID
     change_reason: Optional[str] = None
-    created_at: datetime
 
     model_config = {"from_attributes": True}
 
