@@ -194,7 +194,7 @@ geoforraje/
 | 4 | Mapa Leaflet + leaflet.pm (dibujar, editar, capas base, popups) | ✅ Completada |
 | 5 | Análisis raster (GeoTIFF, Rasterio) + despliegue prod | ⏳ Pendiente |
 
-Ver `spec/printable/` para especificación detallada por fase.
+Ver `docs/` para especificación detallada por fase.
 
 ---
 
