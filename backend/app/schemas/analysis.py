@@ -1,11 +1,14 @@
 # Schemas de análisis - Pydantic
 from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 from datetime import datetime
+from enum import Enum
 from uuid import UUID
+import json
 
 
-class ResourceTypeEnum(str):
+class ResourceTypeEnum(str, Enum):
+    # Tiene que ser un Enum de verdad: el código usa ResourceTypeEnum(...).value
     RESOURCE_1 = "resource_1"
     RESOURCE_2 = "resource_2"
     RESOURCE_3 = "resource_3"
@@ -39,6 +42,23 @@ class AnalysisRead(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @field_validator("status", "resource_type", mode="before")
+    @classmethod
+    def _enum_as_value(cls, v):
+        # El modelo devuelve enums (AnalysisStatus / ResourceType); la API usa el texto
+        return v.value if isinstance(v, Enum) else v
+
+    @field_validator("percentiles", mode="before")
+    @classmethod
+    def _percentiles_as_dict(cls, v):
+        # Compatibilidad con filas viejas donde se guardó como texto JSON
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except ValueError:
+                return None
+        return v
+
 
 class AnalysisListResponse(BaseModel):
     items: List[AnalysisRead]
@@ -51,6 +71,13 @@ class TimeSeriesPoint(BaseModel):
     analyzed_at: datetime
     average_rate: float
     resource_type: ResourceTypeEnum
+    raster_version: Optional[str] = None
+    raster_date: Optional[datetime] = None
+
+    @field_validator("resource_type", mode="before")
+    @classmethod
+    def _enum_as_value(cls, v):
+        return v.value if isinstance(v, Enum) else v
 
 
 class TimeSeriesResponse(BaseModel):
@@ -60,6 +87,12 @@ class TimeSeriesResponse(BaseModel):
 
 
 # === Nuevos schemas para mejoras ===
+
+class AnalysisCacheRequest(BaseModel):
+    """Body de POST /analyses/check-cache"""
+    lot_id: UUID
+    resource_type: ResourceTypeEnum
+
 
 class AnalysisCacheCheck(BaseModel):
     """Respuesta de verificación de cache"""

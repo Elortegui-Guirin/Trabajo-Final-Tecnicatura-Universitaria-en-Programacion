@@ -21,6 +21,7 @@ export const analysesApi = {
     api.get<TimeSeriesResponse>('/analyses/timeseries', { 
       params: { lot_id: lotId, resource_type: resourceType } 
     }),
+  // El endpoint está bajo el router de análisis: GET /analyses/lots/{lot_id}/analyses
   getByLot: (lotId: string, params?: { page?: number; size?: number }) =>
-    api.get<AnalysisListResponse>(`/lots/${lotId}/analyses`, { params }),
+    api.get<AnalysisListResponse>(`/analyses/lots/${lotId}/analyses`, { params }),
 }

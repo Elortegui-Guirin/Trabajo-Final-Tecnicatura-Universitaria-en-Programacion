@@ -94,7 +94,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
-    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2 -Q analysis,periodic,celery
     env_file:
       - ./backend/.env.prod
     volumes:

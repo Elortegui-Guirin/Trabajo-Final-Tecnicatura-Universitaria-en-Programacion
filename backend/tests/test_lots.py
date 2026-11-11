@@ -37,15 +37,15 @@ def auth_headers(test_user):
 
 @pytest.fixture
 def sample_polygon():
-    """Polígono GeoJSON válido (cuadrado aprox 100ha en Argentina)."""
+    """Polígono GeoJSON válido (cuadrado aprox 100 ha en Argentina)."""
     return {
         "type": "Polygon",
         "coordinates": [[
-            [-58.5, -34.5],
-            [-58.5, -34.4],
-            [-58.4, -34.4],
-            [-58.4, -34.5],
-            [-58.5, -34.5]
+            [-58.50, -34.50],
+            [-58.50, -34.49],
+            [-58.49, -34.49],
+            [-58.49, -34.50],
+            [-58.50, -34.50]
         ]]
     }
 
@@ -53,14 +53,14 @@ def sample_polygon():
 @pytest.fixture
 def small_polygon():
     """Polígono muy pequeño (< 0.01 ha) para test de área mínima."""
-    # Aprox 10m x 10m = 100 m² = 0.01 ha
+    # Aprox 4.6m x 5.5m = ~25 m² (< 100 m² = 0.01 ha)
     return {
         "type": "Polygon",
         "coordinates": [[
             [-58.5, -34.5],
-            [-58.5, -34.5001],
-            [-58.4999, -34.5001],
-            [-58.4999, -34.5],
+            [-58.5, -34.50005],
+            [-58.49995, -34.50005],
+            [-58.49995, -34.5],
             [-58.5, -34.5]
         ]]
     }
@@ -68,15 +68,15 @@ def small_polygon():
 
 @pytest.fixture
 def bigger_polygon():
-    """Polígono más grande para test de actualización de área."""
+    """Polígono más grande (~900 ha) para test de actualización de área."""
     return {
         "type": "Polygon",
         "coordinates": [[
-            [-58.6, -34.6],
-            [-58.6, -34.3],
-            [-58.3, -34.3],
-            [-58.3, -34.6],
-            [-58.6, -34.6]
+            [-58.52, -34.52],
+            [-58.52, -34.49],
+            [-58.49, -34.49],
+            [-58.49, -34.52],
+            [-58.52, -34.52]
         ]]
     }
 
@@ -400,11 +400,11 @@ async def test_version_history_ordering(async_client: AsyncClient, auth_headers,
         bigger = {
             "type": "Polygon",
             "coordinates": [[
-                [-58.5 - i*0.05, -34.5 - i*0.05],
-                [-58.5 - i*0.05, -34.4 - i*0.05],
-                [-58.4 - i*0.05, -34.4 - i*0.05],
-                [-58.4 - i*0.05, -34.5 - i*0.05],
-                [-58.5 - i*0.05, -34.5 - i*0.05]
+                [-58.50 - i*0.005, -34.50 - i*0.005],
+                [-58.50 - i*0.005, -34.49 - i*0.005],
+                [-58.49 - i*0.005, -34.49 - i*0.005],
+                [-58.49 - i*0.005, -34.50 - i*0.005],
+                [-58.50 - i*0.005, -34.50 - i*0.005]
             ]]
         }
         await async_client.patch(

@@ -2,6 +2,7 @@
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
+from uuid import UUID
 
 
 class UserRegister(BaseModel):
@@ -34,7 +35,7 @@ class TokenRefresh(BaseModel):
 
 
 class UserPublic(BaseModel):
-    id: str
+    id: UUID
     email: EmailStr
     full_name: Optional[str] = None
     created_at: datetime

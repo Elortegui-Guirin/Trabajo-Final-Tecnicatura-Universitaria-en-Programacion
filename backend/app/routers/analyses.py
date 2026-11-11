@@ -1,4 +1,6 @@
 # Endpoints de análisis - FastAPI
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional, List
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks
@@ -6,13 +8,16 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.schemas.analysis import (
     AnalysisCreate, AnalysisRead, AnalysisListResponse, TimeSeriesResponse, 
-    ResourceTypeEnum, AnalysisCacheCheck, ConcurrentAnalysisError
+    ResourceTypeEnum, AnalysisCacheCheck, AnalysisCacheRequest
 )
 from app.models.user import User
 from app.db.database import get_session
 from app.api.deps import get_current_active_user
 from app.services import raster_service
-from app.workers.raster_tasks import run_analysis_task, check_analysis_cache
+from app.services.raster_service import (
+    _check_cache, _check_concurrent_analysis, _compute_geometry_hash
+)
+from app.workers.raster_tasks import run_analysis_task
 
 router = APIRouter(prefix="/analyses", tags=["analyses"])
 
@@ -53,20 +58,17 @@ async def create_analysis(
     # Obtener geometría y hash para verificación de cache
     lot_geom = to_shape(lot.geometry)
     geom_geojson = mapping(lot_geom)
-    from app.services.raster_service import _compute_geometry_hash
     geometry_hash = _compute_geometry_hash(geom_geojson)
     resource_type = ResourceType(analysis_data.resource_type.value)
     raster_version = raster_service.get_raster_version(resource_type)
     
     # === VERIFICAR CACHE ===
-    from app.services.raster_service import _check_cache
     cached = await _check_cache(session, lot.id, resource_type, geometry_hash, raster_version)
     if cached:
         return AnalysisRead.model_validate(cached)
     
     # === CONTROL DE CONCURRENCIA ===
-    from app.services.raster_service import _check_concurrent_analysis
-    concurrent = _check_concurrent_analysis(session, lot.id, resource_type)
+    concurrent = await _check_concurrent_analysis(session, lot.id, resource_type)
     if concurrent:
         raise HTTPException(
             status_code=409,
@@ -81,10 +83,10 @@ async def create_analysis(
     # Crear análisis en estado pending con versionado
     analysis = Analysis(
         lot_id=analysis_data.lot_id,
-        resource_type=analysis_data.resource_type.value,
+        resource_type=resource_type,
         average_rate=0.0,
         raster_file_reference="",
-        status=AnalysisStatus.PENDING.value,
+        status=AnalysisStatus.PENDING,
         store_clipped_raster=analysis_data.store_clipped_raster,
         raster_version=raster_service.get_raster_version(resource_type),
         raster_date=raster_service.get_raster_date(resource_type),
@@ -102,8 +104,7 @@ async def create_analysis(
 
 @router.post("/check-cache", response_model=dict)
 async def check_analysis_cache(
-    lot_id: UUID,
-    resource_type: ResourceTypeEnum,
+    cache_request: AnalysisCacheRequest,
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
@@ -111,12 +112,13 @@ async def check_analysis_cache(
     Verifica si ya existe un análisis en cache para el lote y recurso dados.
     Útil para el frontend antes de iniciar un nuevo análisis.
     """
+    lot_id = cache_request.lot_id
+    resource_type = cache_request.resource_type
     from app.models.lot import Lot
     from app.models.analysis import ResourceType
     from sqlmodel import select
     from geoalchemy2.shape import to_shape
     from shapely.geometry import mapping
-    from app.services.raster_service import _compute_geometry_hash
     
     # Verificar ownership
     stmt = select(Lot).where(Lot.id == lot_id, Lot.user_id == current_user.id, Lot.deleted_at.is_(None))
@@ -128,7 +130,6 @@ async def check_analysis_cache(
     # Calcular hash de geometría
     lot_geom = to_shape(lot.geometry)
     geom_geojson = mapping(lot_geom)
-    from app.services.raster_service import _compute_geometry_hash
     geometry_hash = _compute_geometry_hash(geom_geojson)
     
     resource_type = ResourceType(resource_type.value)
@@ -163,7 +164,7 @@ async def list_analyses(
 ) -> AnalysisListResponse:
     """Lista análisis con filtros opcionales (solo del usuario actual via ownership de lote)."""
     from app.models.lot import Lot
-    from app.models.analysis import Analysis, AnalysisStatus
+    from app.models.analysis import Analysis, AnalysisStatus, ResourceType
     from sqlmodel import select, func
     
     # Subquery para lotes del usuario (solo activos)
@@ -174,9 +175,12 @@ async def list_analyses(
     if lot_id:
         stmt = stmt.where(Analysis.lot_id == lot_id)
     if resource_type:
-        stmt = stmt.where(Analysis.resource_type == resource_type.value)
+        stmt = stmt.where(Analysis.resource_type == ResourceType(resource_type.value))
     if status:
-        stmt = stmt.where(Analysis.status == status)
+        try:
+            stmt = stmt.where(Analysis.status == AnalysisStatus(status))
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"status inválido: {status}")
     
     # Count total
     count_stmt = select(func.count()).select_from(stmt.subquery())
@@ -276,6 +280,7 @@ async def get_lot_analyses(
     return await list_analyses(
         lot_id=lot_id,
         resource_type=None,
+        status=None,
         page=page,
         size=size,
         current_user=current_user,

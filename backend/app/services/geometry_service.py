@@ -62,7 +62,7 @@ def _validate_geometry_shapely(
     try:
         geom = shape(geom_dict)
     except Exception as e:
-        return None, [f"Error parseando GeoJSON: {str(e)}], warnings
+        return None, [f"Error parseando GeoJSON: {str(e)}"], warnings
     
     # 1. Verificar multipolígono
     if geom.geom_type == "MultiPolygon":

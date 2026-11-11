@@ -1,6 +1,6 @@
 # Tareas periódicas para Celery Beat
 from celery import shared_task
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import logging
 
 logger = logging.getLogger(__name__)
@@ -38,7 +38,10 @@ def generate_alerts_for_anomalies() -> dict:
     async def _check():
         from sqlmodel.ext.asyncio.session import AsyncSession
         from sqlmodel import select, and_
-        from app.db.database import async_session_maker
+        from app.db.database import make_worker_session_maker
+
+        # engine propio con NullPool: cada task corre en un event loop nuevo
+        _engine, async_session_maker = make_worker_session_maker()
         from app.models.analysis import Analysis, AnalysisStatus
         from app.models.lot import Lot
         from app.models.user import User
@@ -139,7 +142,10 @@ def cleanup_stale_analyses(hours: int = 2) -> dict:
     async def _cleanup():
         from sqlmodel.ext.asyncio.session import AsyncSession
         from sqlmodel import select, and_
-        from app.db.database import async_session_maker
+        from app.db.database import make_worker_session_maker
+
+        # engine propio con NullPool: cada task corre en un event loop nuevo
+        _engine, async_session_maker = make_worker_session_maker()
         from app.models.analysis import Analysis, AnalysisStatus
         
         async with async_session_maker() as session:

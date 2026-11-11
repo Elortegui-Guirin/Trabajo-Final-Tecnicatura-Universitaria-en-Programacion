@@ -2,30 +2,42 @@
 from sqlmodel import SQLModel, Field, Column
 from sqlalchemy import DateTime, func
 from datetime import datetime, timezone
-from typing import Optional
+from uuid import UUID, uuid4
+
+
+
+def tz_column(**kwargs) -> Column:
+    """Columna de fecha con zona horaria (se compara con datetime.now(timezone.utc))."""
+    return Column(DateTime(timezone=True), nullable=True, **kwargs)
 
 
 class User(SQLModel, table=True):
-    id: str = Field(default_factory=lambda: str(__import__("uuid").uuid4()), primary_key=True)
-    email: str
+    # Los FKs de lots / lot_versions apuntan a "users.id"
+    __tablename__ = "users"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    email: str = Field(index=True, unique=True, max_length=255)
     hashed_password: str
     full_name: str | None = None
     is_active: bool = True
-    last_login: datetime | None = Field(default=None)
-    deleted_at: datetime | None = Field(default=None)
-    
+    last_login: datetime | None = Field(default=None, sa_column=tz_column())
+    deleted_at: datetime | None = Field(default=None, sa_column=tz_column())
+
     # Email verification
     email_verified: bool = Field(default=False)
-    verification_token: str | None = Field(default=None)
-    verification_token_expires: datetime | None = Field(default=None)
-    
+    verification_token: str | None = Field(default=None, index=True)
+    verification_token_expires: datetime | None = Field(default=None, sa_column=tz_column())
+
     # Password reset
-    reset_token: str | None = Field(default=None)
-    reset_token_expires: datetime | None = Field(default=None)
-    
+    reset_token: str | None = Field(default=None, index=True)
+    reset_token_expires: datetime | None = Field(default=None, sa_column=tz_column())
+
+    # Refresh token vigente (rotación: al emitir uno nuevo el anterior queda inválido)
+    refresh_token_jti: str | None = Field(default=None, max_length=64)
+
     # Login attempt control
     failed_login_attempts: int = Field(default=0)
-    locked_until: datetime | None = Field(default=None)
+    locked_until: datetime | None = Field(default=None, sa_column=tz_column())
 
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),

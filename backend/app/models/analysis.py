@@ -1,8 +1,8 @@
 # Modelo de datos Analysis - SQLModel
 from sqlmodel import SQLModel, Field, Column
-from sqlalchemy import DateTime, func, ForeignKey, Enum as SAEnum, Text, Index
-from datetime import datetime
-from uuid import UUID
+from sqlalchemy import JSON, DateTime, func, ForeignKey, Enum as SAEnum, Text, Index
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
 from typing import Optional
 import enum
 
@@ -21,13 +21,22 @@ class AnalysisStatus(str, enum.Enum):
     FAILED = "failed"
 
 
+def _enum_values(enum_cls):
+    """Guardar en la BD el .value del enum ("pending"), no el nombre ("PENDING")."""
+    return [member.value for member in enum_cls]
+
+
 class Analysis(SQLModel, table=True):
     __tablename__ = "analyses"
     
-    id: UUID = Field(default=None, primary_key=True)
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
     lot_id: UUID = Field(foreign_key="lots.id", nullable=False)
     resource_type: ResourceType = Field(
-        sa_column=Column(SAEnum(ResourceType), nullable=False)
+        sa_column=Column(
+            SAEnum(ResourceType, name="resource_type", native_enum=False,
+                   values_callable=_enum_values, length=20),
+            nullable=False,
+        )
     )
     average_rate: float = Field(nullable=False)
     min_value: Optional[float] = Field(default=None)
@@ -35,7 +44,7 @@ class Analysis(SQLModel, table=True):
     std_dev: Optional[float] = Field(default=None)
     percentiles: Optional[dict] = Field(
         default=None,
-        sa_column=Column(Text, nullable=True)  # JSON como texto
+        sa_column=Column(JSON, nullable=True)  # {"p10": ..., "p50": ...}
     )
     raster_file_reference: str = Field(nullable=False)
     
@@ -58,22 +67,26 @@ class Analysis(SQLModel, table=True):
     lot_geometry_hash: str = Field(nullable=False, max_length=64)  # SHA256
     
     analyzed_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now())
     )
     status: AnalysisStatus = Field(
         default=AnalysisStatus.PENDING,
-        sa_column=Column(SAEnum(AnalysisStatus), nullable=False)
+        sa_column=Column(
+            SAEnum(AnalysisStatus, name="analysis_status", native_enum=False,
+                   values_callable=_enum_values, length=20),
+            nullable=False,
+        )
     )
     error_message: Optional[str] = Field(default=None)
     
     # Timestamps
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now())
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     )
 
@@ -83,10 +96,3 @@ class Analysis(SQLModel, table=True):
         Index('idx_analyses_geometry_hash', 'lot_geometry_hash'),
         Index('idx_analyses_raster_version', 'raster_version'),
     )
-
-
-class AnalysisStatus(str, enum.Enum):
-    PENDING = "pending"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    FAILED = "failed"

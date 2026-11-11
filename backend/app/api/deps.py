@@ -1,19 +1,19 @@
 # Dependencias de FastAPI para autenticación
-from typing import Generator
+from collections.abc import AsyncGenerator
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, SecurityScopes
 from sqlmodel.ext.asyncio.session import AsyncSession
 from jose import JWTError
 
 from app.db.database import async_session_maker
-from app.core.security import decode_token
+from app.core.security import decode_token, parse_user_id
 from app.models.user import User
 from sqlmodel import select
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 
-async def get_session() -> Generator[AsyncSession, None, None]:
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with async_session_maker() as session:
         yield session
 
@@ -31,9 +31,9 @@ async def get_current_user(
     )
     try:
         payload = decode_token(token)
-        if payload is None or payload.get("type") != "access":
+        if not payload or payload.get("type") != "access":
             raise credentials_exception
-        user_id: str = payload.get("sub")
+        user_id = parse_user_id(payload.get("sub"))
         if user_id is None:
             raise credentials_exception
     except JWTError:

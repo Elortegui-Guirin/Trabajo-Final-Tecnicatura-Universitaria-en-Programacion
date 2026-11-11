@@ -10,7 +10,8 @@ RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 
 # Instalar dependencias
-RUN npm ci
+# No hay package-lock.json en el repo: npm ci fallaría. Usar npm install.
+RUN npm install
 
 # Copiar código
 COPY . .

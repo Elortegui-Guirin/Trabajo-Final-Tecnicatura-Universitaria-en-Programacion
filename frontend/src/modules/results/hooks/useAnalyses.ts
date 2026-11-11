@@ -56,9 +56,12 @@ export function useAnalysisPolling(analysisId: string, enabled: boolean) {
   return useQuery({
     queryKey: analysisKeys.detail(analysisId),
     queryFn: () => analysesApi.get(analysisId),
-    refetchInterval: (data) => {
-      if (!data) return 3000
-      return data.status === 'pending' || data.status === 'processing' ? 3000 : false
+    // TanStack Query v5: refetchInterval recibe la query (no los datos).
+    // query.state.data es la respuesta de axios -> el análisis está en .data
+    refetchInterval: (query) => {
+      const status = query.state.data?.data?.status
+      if (!status) return 3000
+      return status === 'pending' || status === 'processing' ? 3000 : false
     },
     enabled,
   })

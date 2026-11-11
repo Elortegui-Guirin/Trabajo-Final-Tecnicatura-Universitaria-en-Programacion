@@ -83,3 +83,7 @@ backup_*.sql
 # Misc
 *.tgz
 .cache/
+# Rasters de datos (pesados, no se versionan)
+data/rasters/*.tif
+data/rasters/*.tiff
+data/rasters/clipped/

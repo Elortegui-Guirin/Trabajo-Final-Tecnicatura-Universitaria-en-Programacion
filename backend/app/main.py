@@ -1,21 +1,28 @@
 # GeoForraje Backend - Main App
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.core.config import get_settings
 from app.db.database import init_db
-from app.routers import health
+from app.routers import analyses, auth, health, lots
+
+# Registrar la app de Celery (broker Redis) antes de usar .delay() en los routers
+from app.workers.celery_app import celery_app  # noqa: F401
 
 settings = get_settings()
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    await init_db()
+    # Startup: en desarrollo crea extensión PostGIS + tablas que falten
+    if settings.AUTO_CREATE_TABLES:
+        await init_db()
     yield
     # Shutdown (cleanup if needed)
+
 
 app = FastAPI(
     title="GeoForraje API",
@@ -40,15 +47,13 @@ app.add_middleware(
 Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 # Routers
-app.include_router(health.router, tags=["health"])
+# Cada router ya define su prefijo (/auth, /lots, /analyses): no repetirlo acá,
+# si no las rutas quedan /auth/auth/login, /lots/lots, etc.
+app.include_router(health.router)
+app.include_router(auth.router)
+app.include_router(lots.router)
+app.include_router(analyses.router)
 
-from app.routers import auth
-from app.routers import lots
-from app.routers import analyses
-
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
-app.include_router(lots.router, prefix="/lots", tags=["lots"])
-app.include_router(analyses.router, prefix="/analyses", tags=["analyses"])
 
 @app.get("/", include_in_schema=False)
 async def root():

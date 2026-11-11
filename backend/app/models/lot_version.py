@@ -3,7 +3,7 @@ from sqlmodel import SQLModel, Field, Column
 from sqlalchemy import DateTime, func, ForeignKey
 from geoalchemy2 import Geometry
 from datetime import datetime, timezone
-from uuid import UUID
+from uuid import UUID, uuid4
 
 
 class LotVersion(SQLModel, table=True):
@@ -13,7 +13,7 @@ class LotVersion(SQLModel, table=True):
     """
     __tablename__ = "lot_versions"
     
-    id: UUID = Field(default=None, primary_key=True)
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
     lot_id: UUID = Field(foreign_key="lots.id", nullable=False)
     version_number: int = Field(nullable=False)  # 1, 2, 3... incremental
     name: str = Field(nullable=False)

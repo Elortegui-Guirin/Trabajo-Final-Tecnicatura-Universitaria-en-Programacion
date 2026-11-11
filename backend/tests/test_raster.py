@@ -42,15 +42,15 @@ def auth_headers(test_user):
 
 @pytest.fixture
 def sample_polygon():
-    """Polígono GeoJSON válido (cuadrado aprox 100ha en Argentina)."""
+    """Polígono GeoJSON válido (cuadrado aprox 100 ha en Argentina)."""
     return {
         "type": "Polygon",
         "coordinates": [[
-            [-58.5, -34.5],
-            [-58.5, -34.4],
-            [-58.4, -34.4],
-            [-58.4, -34.5],
-            [-58.5, -34.5]
+            [-58.50, -34.50],
+            [-58.50, -34.49],
+            [-58.49, -34.49],
+            [-58.49, -34.50],
+            [-58.50, -34.50]
         ]]
     }
 

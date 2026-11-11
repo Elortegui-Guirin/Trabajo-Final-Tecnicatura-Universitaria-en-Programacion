@@ -11,11 +11,10 @@ from app.schemas.auth import (
     ForgotPasswordRequest, ResetPasswordRequest, AuthMessageResponse
 )
 from app.models.user import User
-from app.db.database import get_async_session
 from app.core.security import (
     hash_password, verify_password, create_access_token, create_refresh_token,
     decode_token, create_verification_token, create_reset_token,
-    generate_secure_token
+    generate_secure_token, parse_user_id
 )
 from app.api.deps import get_session, get_current_active_user
 from app.core.config import get_settings
@@ -88,9 +87,6 @@ async def send_password_changed_email(email: str) -> None:
     print(f"==============================")
 
 
-router = APIRouter(prefix="/auth", tags=["auth"])
-
-
 @router.post("/register", response_model=UserPublic, status_code=status.HTTP_201_CREATED)
 async def register(
     user_data: UserRegister,
@@ -145,8 +141,6 @@ async def login(
             detail="Demasiados intentos. Intente de nuevo en 15 minutos."
         )
     
-    record_login_attempt(client_ip)
-    
     user = await session.exec(select(User).where(User.email == user_data.email))
     user = user.first()
     
@@ -179,13 +173,15 @@ async def login(
     # if not user.email_verified:
     #     raise HTTPException(status_code=403, detail="Email no verificado")
     
-    # Login exitoso: resetear contadores
+    # Login exitoso: resetear contadores y registrar el refresh token vigente
+    access_token = create_access_token(data={"sub": user.id})
+    refresh_jti = generate_secure_token()
+    refresh_token = create_refresh_token(data={"sub": user.id}, jti=refresh_jti)
+
     user.reset_failed_logins()
     user.last_login = datetime.now(timezone.utc)
+    user.refresh_token_jti = refresh_jti
     await session.commit()
-    
-    access_token = create_access_token(data={"sub": user.id})
-    refresh_token = create_refresh_token(data={"sub": user.id})
     
     return TokenResponse(
         access_token=access_token,
@@ -200,13 +196,13 @@ async def refresh(
 ) -> TokenResponse:
     """Rota refresh token: invalida el anterior y emite nuevo par."""
     payload = decode_token(token_data.refresh_token)
-    if payload is None or payload.get("type") != "refresh":
+    if not payload or payload.get("type") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token inválido",
         )
     
-    user_id: str = payload.get("sub")
+    user_id = parse_user_id(payload.get("sub"))
     if user_id is None:
         raise HTTPException(status_code=401, detail="Token inválido")
     
@@ -216,9 +212,15 @@ async def refresh(
     if user is None or not user.is_active or user.deleted_at:
         raise HTTPException(status_code=401, detail="Usuario no encontrado o inactivo")
     
-    # Invalidar token anterior (lógica de rotación)
+    # Rotación: solo vale el último refresh token emitido
+    if not payload.get("jti") or payload.get("jti") != user.refresh_token_jti:
+        raise HTTPException(status_code=401, detail="Refresh token inválido o ya utilizado")
+    
     access_token = create_access_token(data={"sub": user.id})
-    new_refresh_token = create_refresh_token(data={"sub": user.id})
+    new_jti = generate_secure_token()
+    new_refresh_token = create_refresh_token(data={"sub": user.id}, jti=new_jti)
+    user.refresh_token_jti = new_jti
+    await session.commit()
     
     return TokenResponse(
         access_token=access_token,
@@ -269,7 +271,7 @@ async def verify_email(
         return AuthMessageResponse(message="Email verificado correctamente")
     
     # Token JWT válido
-    user_id = payload.get("sub")
+    user_id = parse_user_id(payload.get("sub"))
     if not user_id:
         raise HTTPException(status_code=400, detail="Token inválido")
     
@@ -381,49 +383,3 @@ async def logout() -> AuthMessageResponse:
     Este endpoint es para logging/auditoría.
     """
     return AuthMessageResponse(message="Sesión cerrada correctamente")
-
-
-# Endpoint legacy mantenido por compatibilidad
-@router.post("/refresh", response_model=TokenResponse)
-async def refresh(
-    token_data: TokenRefresh,
-    session: AsyncSession = Depends(get_session),
-) -> TokenResponse:
-    """Rota refresh token: invalida el anterior y emite nuevo par."""
-    payload = decode_token(token_data.refresh_token)
-    if payload is None or payload.get("type") != "refresh":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token inválido",
-        )
-    
-    user_id: str = payload.get("sub")
-    if user_id is None:
-        raise HTTPException(status_code=401, detail="Token inválido")
-    
-    user = await session.exec(select(User).where(User.id == user_id))
-    user = user.first()
-    if user is None or not user.is_active or user.deleted_at:
-        raise HTTPException(status_code=401, detail="Usuario no encontrado o inactivo")
-    
-    access_token = create_access_token(data={"sub": user.id})
-    new_refresh_token = create_refresh_token(data={"sub": user.id})
-    
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=new_refresh_token,
-    )
-
-
-@router.get("/me", response_model=UserPublic)
-async def get_me(
-    current_user: User = Depends(get_current_active_user),
-) -> UserPublic:
-    """Obtiene datos del usuario actual."""
-    return UserPublic(
-        id=current_user.id,
-        email=current_user.email,
-        full_name=current_user.full_name,
-        created_at=current_user.created_at,
-        email_verified=current_user.email_verified,
-    )

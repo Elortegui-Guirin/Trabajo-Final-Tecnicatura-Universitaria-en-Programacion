@@ -6,8 +6,10 @@ import type {
   ForgotPasswordRequest, ResetPasswordRequest, AuthMessageResponse
 } from '@/types/api'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -54,7 +56,7 @@ api.interceptors.response.use(
       try {
         const refreshToken = JSON.parse(localStorage.getItem('geoforraje-auth')!).state.refreshToken
         const { data } = await axios.post<TokenResponse>(
-          `${import.meta.env.VITE_API_BASE_URL}/auth/refresh`,
+          `${API_BASE_URL}/auth/refresh`,
           { refresh_token: refreshToken }
         )
         

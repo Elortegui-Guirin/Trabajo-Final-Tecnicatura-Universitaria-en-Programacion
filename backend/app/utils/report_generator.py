@@ -179,7 +179,7 @@ class ReportGenerator:
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ])
+            ]))
             story.append(meta_table)
             story.append(Spacer(1, 18))
         
@@ -215,7 +215,7 @@ class ReportGenerator:
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
                 ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ])
+            ]))
             story.append(param_table)
             story.append(Spacer(1, 18))
         
@@ -251,7 +251,7 @@ class ReportGenerator:
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [self.colors["white"], self.colors["background"]]),
             ('TOPPADDING', (0, 0), (-1, -1), 6),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ])
+        ]))
         story.append(stats_table)
         story.append(Spacer(1, 18))
         

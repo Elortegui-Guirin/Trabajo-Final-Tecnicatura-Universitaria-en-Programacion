@@ -1,5 +1,4 @@
 # Config - Configuración de la aplicación
-import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import List
 
@@ -21,6 +20,13 @@ class Settings(BaseSettings):
 
     # Raster
     RASTER_DATA_PATH: str = "/data/rasters"
+
+    # Crear tablas automáticamente al iniciar (desarrollo/tests).
+    # En producción poner False y usar Alembic (make migrate).
+    AUTO_CREATE_TABLES: bool = True
+
+    # Usar NullPool en el engine (lo activa tests/conftest.py)
+    DB_NULLPOOL: bool = False
 
     # Redis (Celery)
     REDIS_URL: str = "redis://redis:6379/0"

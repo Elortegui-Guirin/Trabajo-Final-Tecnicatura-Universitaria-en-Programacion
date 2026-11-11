@@ -1,4 +1,5 @@
 // GeoForraje Frontend - App Principal
+import React from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Layout } from '@/components/Layout'
 import { LoginPage } from '@/modules/auth/pages/LoginPage'
@@ -76,3 +77,6 @@ export function App() {
     </Routes>
   )
 }
+
+// main.tsx importa App como default
+export default App

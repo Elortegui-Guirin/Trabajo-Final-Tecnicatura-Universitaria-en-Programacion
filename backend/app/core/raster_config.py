@@ -1,15 +1,10 @@
 # Configuración de catálogo raster con versionado
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
-from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 
-
-class ResourceType(str, Enum):
-    RESOURCE_1 = "resource_1"
-    RESOURCE_2 = "resource_2"
-    RESOURCE_3 = "resource_3"
-    RESOURCE_4 = "resource_4"
+# Un único enum de recursos para toda la app (el mismo que usa el modelo Analysis)
+from app.models.analysis import ResourceType
 
 
 class RasterSource(BaseModel):
@@ -21,7 +16,7 @@ class RasterSource(BaseModel):
     
     # === VERSIONADO ===
     version: str = Field(default="v1.0.0", description="Versión del raster (ej: v2024.1, v2024.2)")
-    date: datetime = Field(default_factory=datetime.utcnow, description="Fecha del raster")
+    date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Fecha del raster")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Metadatos adicionales")
 
 
@@ -33,7 +28,7 @@ RASTER_CATALOG: Dict[ResourceType, RasterSource] = {
         nodata=-9999,
         description="Biomasa verde (kg/ha)",
         version="v2024.1",
-        date=datetime(2024, 1, 15),
+        date=datetime(2024, 1, 15, tzinfo=timezone.utc),
         metadata={"source": "Sentinel-2", "resolution_m": 10, "band": "B08"},
     ),
     ResourceType.RESOURCE_2: RasterSource(
@@ -42,7 +37,7 @@ RASTER_CATALOG: Dict[ResourceType, RasterSource] = {
         nodata=-9999,
         description="Cobertura suelo (%)",
         version="v2024.1",
-        date=datetime(2024, 1, 15),
+        date=datetime(2024, 1, 15, tzinfo=timezone.utc),
         metadata={"source": "Sentinel-2", "resolution_m": 10, "band": "B04"},
     ),
     ResourceType.RESOURCE_3: RasterSource(
@@ -51,7 +46,7 @@ RASTER_CATALOG: Dict[ResourceType, RasterSource] = {
         nodata=-9999,
         description="Índice de vegetación (NDVI/EVI)",
         version="v2024.1",
-        date=datetime(2024, 1, 15),
+        date=datetime(2024, 1, 15, tzinfo=timezone.utc),
         metadata={"source": "Sentinel-2", "resolution_m": 10, "index": "NDVI"},
     ),
     ResourceType.RESOURCE_4: RasterSource(
@@ -60,7 +55,7 @@ RASTER_CATALOG: Dict[ResourceType, RasterSource] = {
         nodata=-9999,
         description="Humedad suelo (%)",
         version="v2024.1",
-        date=datetime(2024, 1, 15),
+        date=datetime(2024, 1, 15, tzinfo=timezone.utc),
         metadata={"source": "Sentinel-1", "resolution_m": 20, "polarization": "VV"},
     ),
 }

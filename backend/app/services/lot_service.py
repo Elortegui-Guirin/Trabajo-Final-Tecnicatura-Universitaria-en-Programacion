@@ -7,8 +7,8 @@ from pyproj import Transformer
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, func, and_, or_
 from geoalchemy2 import Geometry
-from geoalchemy2.shape import to_shape
-from geoalchemy2.functions import ST_GeomFromGeoJSON, ST_SetSRID, ST_Intersects, ST_MakeEnvelope
+from geoalchemy2.shape import from_shape, to_shape
+from geoalchemy2.functions import ST_Intersects, ST_MakeEnvelope
 from datetime import datetime, timezone
 
 from app.models.lot import Lot
@@ -112,8 +112,8 @@ async def create_lot(
     # Validar área
     await validate_area(area_ha)
     
-    # Convertir a WKB para PostGIS
-    geom_wkb = ST_SetSRID(ST_GeomFromGeoJSON(str(geometry).replace("'", '"')), 4326)
+    # Convertir a WKB para PostGIS (polígono ya validado y orientado)
+    geom_wkb = from_shape(polygon, srid=4326)
     
     lot = Lot(
         user_id=user_id,
@@ -225,7 +225,7 @@ async def update_lot(
         await validate_area(area_ha)
         
         lot.area_ha = area_ha
-        lot.geometry = ST_SetSRID(ST_GeomFromGeoJSON(str(geometry).replace("'", '"')), 4326)
+        lot.geometry = from_shape(polygon, srid=4326)
         geometry_changed = True
     
     # Si cambió la geometría, crear versión histórica ANTES de commitear
@@ -293,7 +293,6 @@ async def get_lot_versions(
 
 async def lot_to_read(lot: Lot) -> dict:
     """Convierte modelo Lot a dict para respuesta (con GeoJSON)."""
-    from geoalchemy2.shape import to_shape
     geom = to_shape(lot.geometry)
     return {
         "id": lot.id,

@@ -2,7 +2,7 @@
 from sqlmodel import SQLModel, Field, Column
 from sqlalchemy import DateTime, func, ForeignKey, Text
 from datetime import datetime, timezone
-from uuid import UUID
+from uuid import UUID, uuid4
 from typing import Optional
 
 
@@ -13,7 +13,7 @@ class AuditLog(SQLModel, table=True):
     """
     __tablename__ = "audit_log"
     
-    id: UUID = Field(default=None, primary_key=True)
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
     table_name: str = Field(nullable=False)
     record_id: str = Field(nullable=False)  # UUID como string para flexibilidad
     action: str = Field(nullable=False)  # INSERT, UPDATE, DELETE

@@ -1,0 +1,114 @@
+# GeoForraje - Docker Compose DESARROLLO  (make up)
+# Producción: docker-compose.prod.yml
+#
+# Rasters: poner los GeoTIFF en ./data/rasters/ con estos nombres:
+#   resource_1.tif  Biomasa verde (kg/ha)
+#   resource_2.tif  Cobertura suelo (%)
+#   resource_3.tif  Índice de vegetación (NDVI/EVI)
+#   resource_4.tif  Humedad suelo (%)
+# (ver backend/app/core/raster_config.py)
+
+x-backend-env: &backend-env
+  DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/geoforraje
+  TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/geoforraje_test
+  JWT_SECRET: dev-secret-cambiar-en-produccion-minimo-32-caracteres
+  JWT_ALGORITHM: HS256
+  ACCESS_TOKEN_EXPIRE_MINUTES: "15"
+  REFRESH_TOKEN_EXPIRE_DAYS: "7"
+  CORS_ORIGINS: '["http://localhost:5173"]'
+  RASTER_DATA_PATH: /data/rasters
+  REDIS_URL: redis://redis:6379/0
+  LOG_LEVEL: INFO
+  AUTO_CREATE_TABLES: "true"
+
+services:
+  # Base de datos PostgreSQL + PostGIS
+  postgres:
+    image: postgis/postgis:15-3.4
+    environment:
+      POSTGRES_DB: geoforraje
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d geoforraje"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Redis: broker de Celery para los análisis raster
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # API FastAPI (con recarga automática)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment: *backend-env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - ./data/rasters:/data/rasters
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Worker de Celery: procesa los análisis (colas analysis + periodic + default)
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: celery -A app.workers.celery_app worker --loglevel=info --concurrency=2 -Q analysis,periodic,celery
+    environment: *backend-env
+    volumes:
+      - ./backend:/app
+      - ./data/rasters:/data/rasters
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Frontend React + Vite
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+      VITE_APP_TITLE: GeoForraje 1.0
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+  # pgAdmin (opcional) - http://localhost:5050
+  pgadmin:
+    image: dpage/pgadmin4:8
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@geoforraje.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:

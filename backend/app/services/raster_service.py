@@ -9,14 +9,14 @@ from shapely.ops import transform as shapely_transform
 from pyproj import Transformer
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlmodel import select, and_
-from uuid import UUID
+from uuid import UUID, uuid4
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, Tuple
 import logging
 
 from app.models.lot import Lot
 from app.models.analysis import Analysis, ResourceType, AnalysisStatus
-from app.core.raster_config import get_raster_path, get_raster_source, get_raster_version, get_raster_date, ResourceType
+from app.core.raster_config import get_raster_path, get_raster_source, get_raster_version, get_raster_date
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -106,8 +106,13 @@ def calculate_statistics(
     return stats
 
 
-def _check_concurrent_analysis(session: AsyncSession, lot_id: UUID, resource_type: ResourceType) -> Optional[Analysis]:
-    """Verifica si ya hay un análisis en curso para este lote y recurso."""
+async def _check_concurrent_analysis(
+    session: AsyncSession,
+    lot_id: UUID,
+    resource_type: ResourceType,
+    exclude_id: Optional[UUID] = None,
+) -> Optional[Analysis]:
+    """Verifica si ya hay un análisis en curso (pending/processing) para este lote y recurso."""
     stmt = select(Analysis).where(
         and_(
             Analysis.lot_id == lot_id,
@@ -115,11 +120,13 @@ def _check_concurrent_analysis(session: AsyncSession, lot_id: UUID, resource_typ
             Analysis.status.in_([AnalysisStatus.PENDING, AnalysisStatus.PROCESSING])
         )
     )
-    result = session.exec(stmt)
+    if exclude_id is not None:
+        stmt = stmt.where(Analysis.id != exclude_id)
+    result = await session.exec(stmt)
     return result.first()
 
 
-def _check_cache(
+async def _check_cache(
     session: AsyncSession, 
     lot_id: UUID, 
     resource_type: ResourceType, 
@@ -137,7 +144,7 @@ def _check_cache(
         )
     ).order_by(Analysis.analyzed_at.desc())
     
-    result = session.exec(stmt)
+    result = await session.exec(stmt)
     return result.first()
 
 
@@ -147,10 +154,14 @@ async def analyze_lot_resource(
     resource_type: ResourceType,
     base_raster_path: str = "/data/rasters",
     store_clipped: bool = False,
+    analysis: Optional[Analysis] = None,
 ) -> Analysis:
     """
     Ejecuta análisis completo: recorta raster al lote, calcula estadísticas, guarda en BD.
     Incluye cache y versionado de raster.
+
+    Si se pasa `analysis` (el registro pending creado por el endpoint), se actualiza
+    ESE registro con los resultados en lugar de crear uno nuevo.
     """
     # 1. Obtener lote con geometría
     stmt = select(Lot).where(Lot.id == lot_id)
@@ -174,8 +185,11 @@ async def analyze_lot_resource(
     # 4. Calcular hash de geometría para cache
     geometry_hash = _compute_geometry_hash(geom_geojson)
     
-    # 5. Verificar cache: ¿ya existe análisis idéntico?
-    cached = _check_cache(session, lot_id, resource_type, geometry_hash, raster_version)
+    # 5. Verificar cache: ¿ya existe análisis idéntico? (solo si no hay registro a completar;
+    #    el endpoint POST /analyses ya verificó el cache antes de crear el pending)
+    cached = None
+    if analysis is None:
+        cached = await _check_cache(session, lot_id, resource_type, geometry_hash, raster_version)
     if cached:
         logger.info(f"Cache hit para lote {lot_id} + recurso {resource_type.value} + versión {raster_version}")
         return cached
@@ -218,10 +232,8 @@ async def analyze_lot_resource(
         
         logger.info(f"Raster recortado guardado en {clipped_raster_path}")
     
-    # 9. Crear registro de análisis con versionado y cache
-    analysis = Analysis(
-        lot_id=lot_id,
-        resource_type=resource_type.value,
+    # 9. Guardar resultados (en el registro existente o en uno nuevo)
+    results = dict(
         average_rate=stats["mean"],
         min_value=stats["min"],
         max_value=stats["max"],
@@ -237,6 +249,11 @@ async def analyze_lot_resource(
         status=AnalysisStatus.COMPLETED,
         error_message=None,
     )
+    if analysis is None:
+        analysis = Analysis(lot_id=lot_id, resource_type=resource_type, **results)
+    else:
+        for field, value in results.items():
+            setattr(analysis, field, value)
     
     session.add(analysis)
     await session.commit()
@@ -264,8 +281,10 @@ async def run_analysis_task(
         raise ValueError(f"Análisis {analysis_id} no encontrado")
     
     # === CONTROL DE CONCURRENCIA ===
-    existing = _check_concurrent_analysis(session, analysis.lot_id, ResourceType(analysis.resource_type))
-    if existing and existing.id != analysis.id:
+    existing = await _check_concurrent_analysis(
+        session, analysis.lot_id, ResourceType(analysis.resource_type), exclude_id=analysis.id
+    )
+    if existing and existing.status == AnalysisStatus.PROCESSING:
         raise ValueError(
             f"Ya existe un análisis en curso para este lote y recurso "
             f"(ID: {existing.id}, estado: {existing.status}). "
@@ -285,12 +304,15 @@ async def run_analysis_task(
             resource_type=resource_type,
             base_raster_path=base_raster_path,
             store_clipped=analysis.store_clipped_raster,
+            analysis=analysis,
         )
         return completed
     except Exception as e:
-        # Marcar como failed
+        # Marcar como failed (rollback por si la sesión quedó en estado inválido)
+        await session.rollback()
         analysis.status = AnalysisStatus.FAILED
-        analysis.error_message = str(e)
+        analysis.error_message = str(e)[:1000]
+        session.add(analysis)
         await session.commit()
         logger.error(f"Análisis {analysis_id} falló: {e}")
         raise
@@ -306,7 +328,7 @@ async def get_time_series(
         select(Analysis)
         .where(
             Analysis.lot_id == lot_id,
-            Analysis.resource_type == resource_type.value,
+            Analysis.resource_type == ResourceType(resource_type),
             Analysis.status == AnalysisStatus.COMPLETED,
         )
         .order_by(Analysis.analyzed_at)
@@ -337,4 +359,4 @@ async def check_analysis_cache(
     Verifica si existe un análisis en cache para los parámetros dados.
     Retorna el análisis si existe, None en caso contrario.
     """
-    return _check_cache(session, lot_id, resource_type, geometry_hash, raster_version)
+    return await _check_cache(session, lot_id, resource_type, geometry_hash, raster_version)

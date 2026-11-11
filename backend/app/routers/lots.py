@@ -154,7 +154,7 @@ async def update_lot(
             lot_id=lot_id,
             user_id=current_user.id,
             name=lot_data.name,
-            geometry=lot_data.geometry,
+            geometry=lot_data.geometry.model_dump() if lot_data.geometry else None,
             change_reason=lot_data.change_reason,
         )
         if not lot:

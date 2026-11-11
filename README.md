@@ -60,8 +60,12 @@ make health
 # === Postgres === accepting connections
 # === PgAdmin === 200 OK
 
-# 4. (Opcional) Aplicar migraciones si es la primera vez
-make migrate
+# 4. Las tablas se crean solas al iniciar el backend (AUTO_CREATE_TABLES=true).
+#    NO correr `make migrate` por ahora: las migraciones de Alembic quedaron
+#    desactualizadas respecto de los modelos y hay que regenerarlas.
+
+# 5. Para probar los análisis: copiar los GeoTIFF en data/rasters/
+#    (resource_1.tif ... resource_4.tif, ver data/rasters/LEEME.md)
 ```
 
 ### Accesos una vez levantado
