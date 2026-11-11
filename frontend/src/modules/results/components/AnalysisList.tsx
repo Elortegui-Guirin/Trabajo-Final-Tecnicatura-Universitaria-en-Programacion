@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useAnalyses } from '@/modules/results/hooks/useAnalyses'
 import type { AnalysisRead, ResourceType } from '@/types/analysis'
+import { RESOURCE_LABELS, RESOURCE_TYPES } from '@/types/analysis'
 
 interface AnalysisListProps {
   lotId?: string
@@ -9,10 +10,10 @@ interface AnalysisListProps {
 }
 
 const resourceLabels: Record<ResourceType, { label: string; color: string }> = {
-  resource_1: { label: 'Biomasa verde', color: 'bg-green-100 text-green-700' },
-  resource_2: { label: 'Cobertura suelo', color: 'bg-blue-100 text-blue-700' },
-  resource_3: { label: 'Índice vegetación', color: 'bg-emerald-100 text-emerald-700' },
-  resource_4: { label: 'Humedad suelo', color: 'bg-cyan-100 text-cyan-700' },
+  resource_1: { label: RESOURCE_LABELS.resource_1, color: 'bg-green-100 text-green-700' },
+  resource_2: { label: RESOURCE_LABELS.resource_2, color: 'bg-blue-100 text-blue-700' },
+  resource_3: { label: RESOURCE_LABELS.resource_3, color: 'bg-emerald-100 text-emerald-700' },
+  resource_4: { label: RESOURCE_LABELS.resource_4, color: 'bg-amber-100 text-amber-700' },
 }
 
 const statusConfig = {
@@ -51,11 +52,10 @@ export function AnalysisList({ lotId, onView }: AnalysisListProps) {
             onChange={(e) => { setResourceFilter(e.target.value as ResourceType | ''); setPage(1) }}
             className="input py-2 px-3 text-sm max-w-xs"
           >
-            <option value="">Todos los recursos</option>
-            <option value="resource_1">Biomasa verde</option>
-            <option value="resource_2">Cobertura suelo</option>
-            <option value="resource_3">Índice vegetación</option>
-            <option value="resource_4">Humedad suelo</option>
+            <option value="">Todas las especies</option>
+            {RESOURCE_TYPES.map((rt) => (
+              <option key={rt} value={rt}>{RESOURCE_LABELS[rt]}</option>
+            ))}
           </select>
         </div>
       </div>

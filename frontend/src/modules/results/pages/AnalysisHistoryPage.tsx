@@ -4,6 +4,7 @@ import { useLot } from '@/modules/lots/hooks/useLots'
 import { AnalysisList } from '@/modules/results/components/AnalysisList'
 import { useCreateAnalysis } from '@/modules/results/hooks/useAnalyses'
 import type { ResourceType } from '@/types/analysis'
+import { RESOURCE_LABELS, RESOURCE_TYPES } from '@/types/analysis'
 
 export function AnalysisHistoryPage() {
   const { id } = useParams<{ id: string }>()
@@ -34,14 +35,14 @@ export function AnalysisHistoryPage() {
       <div className="card">
         <h3 className="font-semibold text-gray-900 mb-4">Nuevo análisis</h3>
         <div className="flex flex-wrap gap-2">
-          {(['resource_1', 'resource_2', 'resource_3', 'resource_4'] as ResourceType[]).map((rt, i) => (
+          {RESOURCE_TYPES.map((rt) => (
             <button
               key={rt}
               onClick={() => handleAnalyze(rt)}
               disabled={createMutation.isPending}
               className="btn-secondary"
             >
-              Analizar recurso {i + 1}
+              Analizar {RESOURCE_LABELS[rt]}
               {createMutation.isPending && '...'}
             </button>
           ))}

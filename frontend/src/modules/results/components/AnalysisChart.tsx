@@ -5,6 +5,7 @@ import {
   ResponsiveContainer, Legend, BarChart, Bar
 } from 'recharts'
 import type { ResourceType } from '@/types/analysis'
+import { GROWTH_RATE_UNIT, RESOURCE_LABELS } from '@/types/analysis'
 
 interface AnalysisChartProps {
   analysisId?: string
@@ -13,10 +14,10 @@ interface AnalysisChartProps {
 }
 
 const resourceLabels: Record<ResourceType, string> = {
-  resource_1: 'Biomasa verde (kg/ha)',
-  resource_2: 'Cobertura suelo (%)',
-  resource_3: 'Índice vegetación (NDVI)',
-  resource_4: 'Humedad suelo (%)',
+  resource_1: `${RESOURCE_LABELS.resource_1} (${GROWTH_RATE_UNIT})`,
+  resource_2: `${RESOURCE_LABELS.resource_2} (${GROWTH_RATE_UNIT})`,
+  resource_3: `${RESOURCE_LABELS.resource_3} (${GROWTH_RATE_UNIT})`,
+  resource_4: `${RESOURCE_LABELS.resource_4} (${GROWTH_RATE_UNIT})`,
 }
 
 export function AnalysisChart({ analysisId, resourceType, lotName }: AnalysisChartProps) {

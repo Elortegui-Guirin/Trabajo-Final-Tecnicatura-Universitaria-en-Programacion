@@ -142,7 +142,7 @@ export function LotDetail({ lot }: LotDetailProps) {
           Ver historial de análisis
         </Link>
         <p className="text-sm text-gray-500 mt-2">
-          Gestiona y visualiza análisis de biomasa, cobertura, índice vegetación y humedad.
+          Calcula la tasa de crecimiento promedio (kg MS/ha/día) de alfalfa, festuca, raigrás y pastizal natural en el lote.
         </p>
       </div>
 

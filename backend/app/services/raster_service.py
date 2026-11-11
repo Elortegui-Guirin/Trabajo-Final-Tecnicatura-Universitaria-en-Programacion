@@ -54,12 +54,14 @@ def clip_raster_to_geometry(
         elif src_crs:
             geom = transform_geom("EPSG:4326", src_crs, geometry)
         
+        # filled=False -> array enmascarado: quedan marcados como inválidos los píxeles
+        # fuera del polígono y los NoData del archivo (si no, se rellenaban con 0
+        # cuando el .tif no tiene NoData y bajaban el promedio).
         out_image, out_transform = mask(
             src,
             [geom],
             crop=True,
-            nodata=src.nodata,
-            filled=True,
+            filled=False,
         )
         
         data = out_image[0] if out_image.ndim == 3 else out_image
@@ -75,7 +77,10 @@ def calculate_statistics(
     Calcula estadísticas descriptivas de un array raster recortado.
     Ignora valores nodata y NaN.
     """
-    valid_mask = np.ones_like(data, dtype=bool)
+    valid_mask = np.ones(np.shape(data), dtype=bool)
+    if np.ma.isMaskedArray(data):
+        valid_mask &= ~np.ma.getmaskarray(data)
+        data = np.ma.getdata(data)
     if nodata is not None:
         valid_mask &= (data != nodata)
     valid_mask &= ~np.isnan(data)
@@ -202,7 +207,8 @@ async def analyze_lot_resource(
     )
     
     # 7. Calcular estadísticas
-    nodata = raster_source.nodata
+    # NoData: el del catálogo si está definido, si no el del archivo
+    nodata = raster_source.nodata if raster_source.nodata is not None else meta.get("nodata")
     stats = calculate_statistics(data, nodata=nodata)
     
     if stats["count"] == 0:
@@ -217,18 +223,24 @@ async def analyze_lot_resource(
         clipped_filename = f"clipped_{uuid4().hex}.tif"
         clipped_raster_path = f"{clipped_dir}/{clipped_filename}"
         
+        # Rellenar lo enmascarado (fuera del lote / NoData) con un valor NoData válido
+        fill_value = nodata
+        if fill_value is None:
+            fill_value = -9999 if np.issubdtype(data.dtype, np.floating) else 0
+        clipped = np.ma.filled(data, fill_value)
+
         with rasterio.open(
             clipped_raster_path, 'w',
             driver='GTiff',
-            height=data.shape[0],
-            width=data.shape[1],
+            height=clipped.shape[0],
+            width=clipped.shape[1],
             count=1,
-            dtype=data.dtype,
+            dtype=clipped.dtype,
             crs=meta['crs'],
             transform=out_transform,
-            nodata=nodata,
+            nodata=fill_value,
         ) as dst:
-            dst.write(data, 1)
+            dst.write(clipped, 1)
         
         logger.info(f"Raster recortado guardado en {clipped_raster_path}")
     

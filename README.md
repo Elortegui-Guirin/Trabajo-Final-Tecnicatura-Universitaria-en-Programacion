@@ -65,7 +65,7 @@ make health
 #    desactualizadas respecto de los modelos y hay que regenerarlas.
 
 # 5. Para probar los análisis: copiar los GeoTIFF en data/rasters/
-#    (resource_1.tif ... resource_4.tif, ver data/rasters/LEEME.md)
+#    (alfalfa.tif, festuca.tif, raigras.tif, pastizal.tif - ver data/rasters/LEEME.md)
 ```
 
 ### Accesos una vez levantado

@@ -188,14 +188,14 @@ class ReportGenerator:
             story.append(Paragraph("Parámetros de Análisis", heading_style))
             
             resource_labels = {
-                "resource_1": "Biomasa verde (kg/ha)",
-                "resource_2": "Cobertura suelo (%)",
-                "resource_3": "Índice vegetación (NDVI)",
-                "resource_4": "Humedad suelo (%)",
+                "resource_1": "Alfalfa - tasa de crecimiento (kg MS/ha/día)",
+                "resource_2": "Festuca - tasa de crecimiento (kg MS/ha/día)",
+                "resource_3": "Raigrás - tasa de crecimiento (kg MS/ha/día)",
+                "resource_4": "Pastizal natural - tasa de crecimiento (kg MS/ha/día)",
             }
             
             param_data = [
-                ["Recurso analizado:", resource_labels.get(analysis_data.get("resource_type"), analysis_data.get("resource_type"))],
+                ["Especie forrajera:", resource_labels.get(analysis_data.get("resource_type"), analysis_data.get("resource_type"))],
                 ["Raster origen:", analysis_data.get("raster_file_reference", "N/A")],
                 ["Versión raster:", analysis_data.get("raster_version", "N/A")],
                 ["Fecha raster:", self._format_datetime(analysis_data.get("raster_date"))],
@@ -315,20 +315,15 @@ class ReportGenerator:
         return labels.get(status, status)
     
     def _get_unit(self, resource_type: str) -> str:
-        units = {
-            "resource_1": "kg/ha",
-            "resource_2": "%",
-            "resource_3": "índice",
-            "resource_4": "%",
-        }
-        return units.get(resource_type, "")
+        # Todos los recursos son mapas de tasa de crecimiento de pasturas
+        return "kg MS/ha/día"
     
     def _get_legend_text(self, resource_type: str) -> str:
         legends = {
-            "resource_1": "Biomasa verde: Cantidad de materia verde por hectárea (kg/ha). Valores altos indican mayor disponibilidad forrajera.",
-            "resource_2": "Cobertura suelo: Porcentaje de suelo cubierto por vegetación. 100% = suelo completamente cubierto.",
-            "resource_3": "Índice de vegetación (NDVI): Índice normalizado de vegetación. Rango -1 a 1. Valores >0.3 indican vegetación activa.",
-            "resource_4": "Humedad suelo: Porcentaje de humedad en el suelo. Valores óptimos dependen del tipo de suelo y cultivo.",
+            "resource_1": "Alfalfa: tasa de crecimiento diaria de materia seca (kg MS/ha/día) estimada para el lote.",
+            "resource_2": "Festuca: tasa de crecimiento diaria de materia seca (kg MS/ha/día) estimada para el lote.",
+            "resource_3": "Raigrás: tasa de crecimiento diaria de materia seca (kg MS/ha/día) estimada para el lote.",
+            "resource_4": "Pastizal natural: tasa de crecimiento diaria de materia seca (kg MS/ha/día) estimada para el lote.",
         }
         return legends.get(resource_type, "Leyenda no disponible para este recurso.")
 

@@ -21,42 +21,52 @@ class RasterSource(BaseModel):
 
 
 # Catálogo de recursos forrajeros con versionado
+# Fecha de los mapas de tasa de crecimiento cargados actualmente
+_FECHA_MAPAS = datetime(2026, 10, 31, tzinfo=timezone.utc)
+_VERSION_MAPAS = "v2026.10.31"
+_UNIDAD = "kg MS/ha/día"
+
+# Catálogo de recursos forrajeros: un GeoTIFF de tasa de crecimiento por especie.
+# Los IDs internos (resource_1..4) se mantienen para no tocar la base de datos.
+# nodata=None -> se usa el NoData definido en cada archivo .tif.
+# Cuando haya mapas de otra fecha: actualizar _FECHA_MAPAS y _VERSION_MAPAS
+# (los análisis viejos quedan guardados con su versión y fecha).
 RASTER_CATALOG: Dict[ResourceType, RasterSource] = {
     ResourceType.RESOURCE_1: RasterSource(
-        path="/data/rasters/resource_1.tif",
+        path="/data/rasters/alfalfa.tif",
         band=1,
-        nodata=-9999,
-        description="Biomasa verde (kg/ha)",
-        version="v2024.1",
-        date=datetime(2024, 1, 15, tzinfo=timezone.utc),
-        metadata={"source": "Sentinel-2", "resolution_m": 10, "band": "B08"},
+        nodata=None,
+        description=f"Alfalfa - tasa de crecimiento ({_UNIDAD})",
+        version=_VERSION_MAPAS,
+        date=_FECHA_MAPAS,
+        metadata={"especie": "Alfalfa", "variable": "tasa de crecimiento", "unidad": _UNIDAD},
     ),
     ResourceType.RESOURCE_2: RasterSource(
-        path="/data/rasters/resource_2.tif",
+        path="/data/rasters/festuca.tif",
         band=1,
-        nodata=-9999,
-        description="Cobertura suelo (%)",
-        version="v2024.1",
-        date=datetime(2024, 1, 15, tzinfo=timezone.utc),
-        metadata={"source": "Sentinel-2", "resolution_m": 10, "band": "B04"},
+        nodata=None,
+        description=f"Festuca - tasa de crecimiento ({_UNIDAD})",
+        version=_VERSION_MAPAS,
+        date=_FECHA_MAPAS,
+        metadata={"especie": "Festuca", "variable": "tasa de crecimiento", "unidad": _UNIDAD},
     ),
     ResourceType.RESOURCE_3: RasterSource(
-        path="/data/rasters/resource_3.tif",
+        path="/data/rasters/raigras.tif",
         band=1,
-        nodata=-9999,
-        description="Índice de vegetación (NDVI/EVI)",
-        version="v2024.1",
-        date=datetime(2024, 1, 15, tzinfo=timezone.utc),
-        metadata={"source": "Sentinel-2", "resolution_m": 10, "index": "NDVI"},
+        nodata=None,
+        description=f"Raigrás - tasa de crecimiento ({_UNIDAD})",
+        version=_VERSION_MAPAS,
+        date=_FECHA_MAPAS,
+        metadata={"especie": "Raigrás", "variable": "tasa de crecimiento", "unidad": _UNIDAD},
     ),
     ResourceType.RESOURCE_4: RasterSource(
-        path="/data/rasters/resource_4.tif",
+        path="/data/rasters/pastizal.tif",
         band=1,
-        nodata=-9999,
-        description="Humedad suelo (%)",
-        version="v2024.1",
-        date=datetime(2024, 1, 15, tzinfo=timezone.utc),
-        metadata={"source": "Sentinel-1", "resolution_m": 20, "polarization": "VV"},
+        nodata=None,
+        description=f"Pastizal natural - tasa de crecimiento ({_UNIDAD})",
+        version=_VERSION_MAPAS,
+        date=_FECHA_MAPAS,
+        metadata={"especie": "Pastizal natural", "variable": "tasa de crecimiento", "unidad": _UNIDAD},
     ),
 }
 

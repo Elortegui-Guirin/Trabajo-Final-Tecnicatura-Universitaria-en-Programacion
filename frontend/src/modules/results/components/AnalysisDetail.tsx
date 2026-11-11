@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { MapEditor } from '@/components/MapView/MapEditor'
 import { AnalysisChart } from './AnalysisChart'
 import type { AnalysisRead, GeoJSONPolygon } from '@/types/analysis'
+import { GROWTH_RATE_UNIT, RESOURCE_LABELS } from '@/types/analysis'
 
 interface AnalysisDetailProps {
   analysis: AnalysisRead
@@ -11,7 +12,7 @@ interface AnalysisDetailProps {
 }
 
 const metricCards = [
-  { key: 'average_rate' as const, label: 'Tasa promedio', color: 'text-primary-600' },
+  { key: 'average_rate' as const, label: `Tasa promedio (${GROWTH_RATE_UNIT})`, color: 'text-primary-600' },
   { key: 'min_value', label: 'Mínimo', color: 'text-blue-600' },
   { key: 'max_value', label: 'Máximo', color: 'text-red-600' },
   { key: 'std_dev', label: 'Desv. estándar', color: 'text-purple-600' },
@@ -20,12 +21,9 @@ const metricCards = [
 export function AnalysisDetail({ analysis, lotGeometry, lotName }: AnalysisDetailProps) {
   const percentiles = useMemo(() => analysis.percentiles || {}, [analysis.percentiles])
 
-  const resourceLabels: Record<string, string> = {
-    resource_1: 'Biomasa verde (kg/ha)',
-    resource_2: 'Cobertura suelo (%)',
-    resource_3: 'Índice vegetación (NDVI)',
-    resource_4: 'Humedad suelo (%)',
-  }
+  const resourceLabels: Record<string, string> = Object.fromEntries(
+    Object.entries(RESOURCE_LABELS).map(([key, label]) => [key, `${label} (${GROWTH_RATE_UNIT})`])
+  )
 
   return (
     <div className="space-y-6">

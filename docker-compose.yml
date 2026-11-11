@@ -2,10 +2,8 @@
 # Producción: docker-compose.prod.yml
 #
 # Rasters: poner los GeoTIFF en ./data/rasters/ con estos nombres:
-#   resource_1.tif  Biomasa verde (kg/ha)
-#   resource_2.tif  Cobertura suelo (%)
-#   resource_3.tif  Índice de vegetación (NDVI/EVI)
-#   resource_4.tif  Humedad suelo (%)
+#   alfalfa.tif   festuca.tif   raigras.tif   pastizal.tif
+#   (tasa de crecimiento en kg MS/ha/día)
 # (ver backend/app/core/raster_config.py)
 
 x-backend-env: &backend-env
