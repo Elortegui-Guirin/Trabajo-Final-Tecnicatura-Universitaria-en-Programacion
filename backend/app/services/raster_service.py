@@ -35,6 +35,7 @@ def clip_raster_to_geometry(
     raster_path: str,
     geometry: dict,
     target_crs: Optional[str] = None,
+    all_touched: bool = False,
 ) -> Tuple[np.ndarray, rasterio.Affine, dict]:
     """
     Recorta un raster GeoTIFF a una geometría (polígono).
@@ -62,6 +63,9 @@ def clip_raster_to_geometry(
             [geom],
             crop=True,
             filled=False,
+            # False: solo píxeles cuyo centro cae dentro del lote.
+            # True: todo píxel que toque el lote (para lotes más chicos que un píxel).
+            all_touched=all_touched,
         )
         
         data = out_image[0] if out_image.ndim == 3 else out_image
@@ -72,6 +76,8 @@ def clip_raster_to_geometry(
 def calculate_statistics(
     data: np.ndarray,
     nodata: Optional[float] = None,
+    valid_min: Optional[float] = None,
+    valid_max: Optional[float] = None,
 ) -> Dict[str, Any]:
     """
     Calcula estadísticas descriptivas de un array raster recortado.
@@ -84,6 +90,10 @@ def calculate_statistics(
     if nodata is not None:
         valid_mask &= (data != nodata)
     valid_mask &= ~np.isnan(data)
+    if valid_min is not None:
+        valid_mask &= (data >= valid_min)
+    if valid_max is not None:
+        valid_mask &= (data <= valid_max)
     
     valid_data = data[valid_mask]
     
@@ -209,10 +219,30 @@ async def analyze_lot_resource(
     # 7. Calcular estadísticas
     # NoData: el del catálogo si está definido, si no el del archivo
     nodata = raster_source.nodata if raster_source.nodata is not None else meta.get("nodata")
-    stats = calculate_statistics(data, nodata=nodata)
-    
+    stats = calculate_statistics(
+        data, nodata=nodata,
+        valid_min=raster_source.valid_min, valid_max=raster_source.valid_max,
+    )
+
+    # Lote más chico que un píxel (MODIS ~11 ha): ningún centro de píxel cae adentro.
+    # Se repite tomando todos los píxeles que el lote toca.
     if stats["count"] == 0:
-        raise ValueError("No hay datos válidos en el recorte (lote fuera de bounds del raster)")
+        logger.info(f"Lote {lot_id}: sin centros de píxel dentro, reintento con all_touched=True")
+        data, out_transform, meta = clip_raster_to_geometry(
+            raster_path=raster_path,
+            geometry=geom_geojson,
+            all_touched=True,
+        )
+        stats = calculate_statistics(
+            data, nodata=nodata,
+            valid_min=raster_source.valid_min, valid_max=raster_source.valid_max,
+        )
+
+    if stats["count"] == 0:
+        raise ValueError(
+            "No hay datos válidos en el lote: está fuera de la zona cubierta por el mapa "
+            "o sobre áreas sin dato (zonas urbanas, agua)."
+        )
     
     # 8. Opcional: guardar raster recortado
     clipped_raster_path = None

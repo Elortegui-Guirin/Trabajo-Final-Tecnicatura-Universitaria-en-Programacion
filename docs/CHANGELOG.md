@@ -65,6 +65,44 @@ Formato: fecha, qué cambió y por qué. Lo más reciente arriba.
 - El polling de análisis usaba la firma de TanStack Query v4.
 - Dockerfile: `npm ci` sin `package-lock.json`; se cambió a `npm install`.
 
+### Frontend: mapa (reescrito)
+- `leaflet.pm@^1.10.0` no existe en npm, así que `npm install` fallaba y el frontend no se construía. Se reemplazó por su sucesor, `@geoman-io/leaflet-geoman-free`.
+- El módulo de mapas no podía funcionar:
+  - `MapEditor` devolvía `null` hasta que existiera el mapa, y el mapa nunca se creaba.
+  - La misma `ref` se usaba como `<div>` y como `L.Map`.
+  - Cada capa creaba su propio mapa.
+  - `DrawControl` llamaba a funciones inexistentes (`L.PM.events.draw`).
+  - `MapEditor` importaba `getVertexCount` y `MAX_VERTICES`, que `useGeoJSON.ts` no exportaba, y eso hacía fallar la carga de toda la app.
+- `MapEditor.tsx` se reescribió con `react-leaflet`:
+  - Capas OSM y satélite.
+  - Geoman para dibujar polígono o rectángulo, editar, mover y borrar.
+  - Un solo polígono por lote.
+  - Muestra el área aproximada y los errores de validación.
+  - Mantiene la misma interfaz de props, así que `LotForm`, `LotDetail` y `AnalysisDetail` no cambian.
+- `useGeoJSON.ts` reescrito: `validatePolygon`, `getVertexCount`, `calculateAreaHa` (fórmula esférica), `simplifyGeometry` y `MAX_VERTICES`.
+- `LotForm` muestra los errores del servidor (área, nombre repetido) y exige dibujar el lote antes de guardar.
+- `DrawControl.tsx`, `useMap.ts`, `VectorLayer.tsx` y `BaseLayers.tsx` quedaron **sin uso** y se pueden borrar.
+
+### Frontend: errores encontrados al levantarlo
+- `vite.config.ts` empezaba con un comentario `#` (sintaxis de Python), así que Vite no arrancaba.
+- Errores de sintaxis por paréntesis y llaves mal cerrados en `LotList.tsx`, `LotDetail.tsx` y `LotDetailPage.tsx`.
+- Los hooks de TanStack Query (`useLots`, `useLot`, `useLotVersions`, `useAnalyses`, `useAnalysis`, `useTimeSeries`) devolvían la respuesta completa de axios, pero los componentes esperan solo los datos (`data.items`, `lot.name`). Ahora devuelven `response.data`.
+
+### Frontend: login y registro
+- La página de registro **no llamaba a `/auth/register`**: solo intentaba iniciar sesión, así que las cuentas nunca se creaban.
+- Después del login se pedía `/auth/me` antes de guardar el token, y el pedido salía sin autorización (401). Ahora `authApi.me(token)` recibe el token recién obtenido.
+- El interceptor de refresh fallaba si no había sesión guardada (`JSON.parse(null)`). Tampoco debe intentar refrescar en login, registro o refresh. Ahora lee los tokens de forma segura.
+- Los mensajes de error de la API se muestran bien, incluidos los 422 que traen una lista de errores.
+
+### Frontend: dashboard y actualización de análisis
+- El Dashboard era una página de prueba. Ahora muestra lotes activos, superficie total, cantidad de análisis, la lista de lotes con acceso a "Analizar" y los últimos análisis con su tasa.
+- Las listas y el detalle de análisis se vuelven a consultar cada 2 s mientras haya alguno `pending`/`processing`. Antes el análisis se completaba en el backend, pero la pantalla seguía mostrando "Pendiente".
+- `vite.config.ts` y `docker-compose.yml` usan *polling* para detectar cambios de archivos, porque Docker sobre Windows no avisa los cambios y Vite/uvicorn seguían con el código viejo.
+
+### Backend: dependencias
+- Faltaba `greenlet`, que SQLAlchemy necesita para el modo async.
+- SQLAlchemy queda fijado en `>=2.0.30,<2.1`, porque `geoalchemy2` 0.14 no es compatible con SQLAlchemy 2.1 y fallaba al crear las tablas.
+
 ### Infraestructura y documentación
 - Nuevo `docker-compose.yml` de desarrollo: postgres/postgis, redis, backend, worker de Celery, frontend y pgadmin.
 - Documentación actualizada: README, API_SPECS, diagrama ER, reglas de negocio y estado de requerimientos.
@@ -78,4 +116,6 @@ Formato: fecha, qué cambió y por qué. Lo más reciente arriba.
 - Aclarar con la fuente de los mapas:
   - Por qué alfalfa y festuca coinciden en ~17% de los píxeles.
   - Si los píxeles en 0 (≈6%, iguales en las 4 especies) son "sin crecimiento" o una máscara.
+- Borrar los componentes de mapa viejos sin uso (`DrawControl`, `useMap`, `VectorLayer`, `BaseLayers`).
+- Editar un lote existente: el formulario de edición todavía no carga los datos del lote.
 - El `Makefile` no se pudo editar con las herramientas usadas. Agregar a mano un target `health` si se quiere.

@@ -1,30 +1,125 @@
-// MapEditor.tsx - Componente alto nivel: mapa con draw/editar/eliminar
-import React, { useEffect, useRef, useState } from "react"
+// MapEditor.tsx - Mapa para dibujar / editar / ver el polígono de un lote
+// react-leaflet (MapContainer) + Geoman (@geoman-io/leaflet-geoman-free) para dibujar.
+import { useEffect, useRef, useState } from "react"
 import L from "leaflet"
+import { MapContainer, TileLayer, LayersControl, useMap } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
-import { useMap } from "./useMap"
-import { BaseLayers } from "./BaseLayers"
-import { DrawControl } from "./DrawControl"
-import { VectorLayer } from "./VectorLayer"
-import { GeoJSON } from "geojson"
-import { validatePolygon, getVertexCount, calculateAreaHa, simplifyGeometry, MAX_VERTICES } from "@/hooks/useGeoJSON"
+import "@geoman-io/leaflet-geoman-free"
+import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css"
+import type { Feature } from "geojson"
+import { validatePolygon, simplifyGeometry, MAX_VERTICES } from "@/hooks/useGeoJSON"
 
-// Fix para iconos por defecto en Leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-})
+// Centro por defecto: provincia de Buenos Aires (zona cubierta por los mapas de crecimiento)
+const DEFAULT_CENTER: [number, number] = [-37.0, -60.0]
+const DEFAULT_ZOOM = 7
 
-// Interfaz de retorno del hook
+const POLYGON_STYLE = { color: "#15803d", weight: 2, fillColor: "#22c55e", fillOpacity: 0.35 }
+
 interface MapEditorProps {
-  initialGeometry?: GeoJSON.Feature | null
-  onGeometryChange: (geojson: GeoJSON.Feature | null) => void
+  initialGeometry?: Feature | null
+  onGeometryChange: (geojson: Feature | null) => void
   readOnly?: boolean
   height: string
   showVertexCount?: boolean
   showArea?: boolean
+}
+
+/**
+ * Capa del lote + controles de dibujo. Va dentro de <MapContainer> para usar useMap().
+ * Se mantiene un solo polígono: dibujar uno nuevo reemplaza al anterior.
+ */
+function LotLayer({
+  initialGeometry,
+  readOnly,
+  onChange,
+}: {
+  initialGeometry?: Feature | null
+  readOnly: boolean
+  onChange: (feature: Feature | null) => void
+}) {
+  const map = useMap()
+  const layerRef = useRef<L.Layer | null>(null)
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
+
+  // Avisar cambios del polígono (editar vértices o moverlo)
+  const watchLayer = (layer: L.Layer) => {
+    const emit = () => onChangeRef.current((layer as L.Polygon).toGeoJSON() as Feature)
+    layer.on("pm:edit", emit)
+    layer.on("pm:dragend", emit)
+  }
+
+  // Geometría inicial (lote existente): se dibuja una sola vez, cuando todavía no hay polígono.
+  // No se vuelve a dibujar cuando el formulario recibe la geometría que el usuario acaba de trazar.
+  useEffect(() => {
+    if (!initialGeometry?.geometry || layerRef.current) return
+    const layer = L.geoJSON(initialGeometry as any, { style: POLYGON_STYLE }).getLayers()[0]
+    if (!layer) return
+    layer.addTo(map)
+    layerRef.current = layer
+    map.fitBounds((layer as L.Polygon).getBounds(), { padding: [30, 30], maxZoom: 16 })
+    if (!readOnly) watchLayer(layer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, readOnly, JSON.stringify(initialGeometry?.geometry ?? null)])
+
+  // Al desmontar, sacar el polígono del mapa
+  useEffect(() => () => {
+    layerRef.current?.remove()
+    layerRef.current = null
+  }, [map])
+
+  // Controles de dibujo (solo en modo edición)
+  useEffect(() => {
+    if (readOnly) return
+    const pm = (map as any).pm
+    if (!pm) {
+      console.error("Geoman no está cargado: no se puede dibujar")
+      return
+    }
+
+    pm.setLang("es")
+    pm.addControls({
+      position: "topleft",
+      drawMarker: false,
+      drawCircleMarker: false,
+      drawPolyline: false,
+      drawRectangle: true,
+      drawPolygon: true,
+      drawCircle: false,
+      drawText: false,
+      editMode: true,
+      dragMode: true,
+      cutPolygon: false,
+      removalMode: true,
+      rotateMode: false,
+    })
+    pm.setGlobalOptions({ pathOptions: POLYGON_STYLE, snappable: true, snapDistance: 15 })
+
+    const handleCreate = (e: any) => {
+      // Un solo lote: si ya había un polígono, se reemplaza
+      if (layerRef.current && layerRef.current !== e.layer) layerRef.current.remove()
+      layerRef.current = e.layer
+      watchLayer(e.layer)
+      onChangeRef.current(e.layer.toGeoJSON() as Feature)
+    }
+    const handleRemove = (e: any) => {
+      if (e.layer === layerRef.current) {
+        layerRef.current = null
+        onChangeRef.current(null)
+      }
+    }
+    map.on("pm:create", handleCreate)
+    map.on("pm:remove", handleRemove)
+
+    return () => {
+      map.off("pm:create", handleCreate)
+      map.off("pm:remove", handleRemove)
+      pm.removeControls()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [map, readOnly])
+
+  return null
 }
 
 export const MapEditor = ({
@@ -35,262 +130,85 @@ export const MapEditor = ({
   showVertexCount = true,
   showArea = true,
 }: MapEditorProps) => {
-  const {
-    mapRef,
-    addGeoJSON,
-    removeLayer,
-    fitToLayer,
-    getMap,
-  } = useMap()
+  const [current, setCurrent] = useState<Feature | null>(initialGeometry ?? null)
 
-  const [drawing, setDrawing] = useState(false)
-  const [selectedGeometry, setSelectedGeometry] = useState<
-    GeoJSON.Feature | null
-  >(initialGeometry ?? null)
-  const [validationErrors, setValidationErrors] = useState<string[]>([])
-  const [validationWarnings, setValidationWarnings] = useState<string[]>([])
-  const [vertexCount, setVertexCount] = useState<number>(0)
-  const [areaHa, setAreaHa] = useState<number | null>(null)
-
-  // Cuando cambie la geometría seleccionada, notificar al padre y al mapa
+  // Si llega una geometría desde afuera (lote existente), mostrarla.
+  // Si el formulario la pone en null (polígono inválido), se mantiene la actual para seguir viendo los errores.
   useEffect(() => {
-    if (selectedGeometry) {
-      setDrawing(true)
-      // Agregar geometría al mapa como capa vectorial
-      const geojson: GeoJSON.FeatureCollection = {
-        type: "FeatureCollection",
-        features: [selectedGeometry],
-      }
-      addGeoJSON(geojson, "current-draw")
-      fitToLayer("current-draw")
-    } else {
-      setDrawing(false)
-      removeLayer("current-draw")
+    if (initialGeometry) setCurrent(initialGeometry)
+  }, [JSON.stringify(initialGeometry?.geometry ?? null)]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const validation = current ? validatePolygon(current) : null
+
+  const handleChange = (feature: Feature | null) => {
+    if (!feature) {
+      setCurrent(null)
+      onGeometryChange(null)
+      return
     }
-  }, [selectedGeometry])
-
-  // Validar geometría cuando cambie
-  useEffect(() => {
-    if (selectedGeometry) {
-      const result = validatePolygon(selectedGeometry)
-      setValidationErrors(result.errors)
-      setValidationWarnings(result.warnings)
-      setVertexCount(result.vertexCount)
-      setAreaHa(result.areaHa)
-    } else {
-      setValidationErrors([])
-      setValidationWarnings([])
-      setVertexCount(0)
-      setAreaHa(null)
-    }
-  }, [selectedGeometry])
-
-  // Emitir cambio de geometría cuando el usuario termine de dibujar/editar
-  // Esto se conecta con el DrawControl events
-  const handleDrawEnd = (geojson: any) => {
-    const feature = geojson as GeoJSON.Feature
-    // Validar que sea polígono válido
-    if (feature.geometry.type === "Polygon" && feature.geometry.coordinates?.[0]?.length >= 4) {
-      // Validar antes de aceptar
-      const result = validatePolygon(feature)
-      if (!result.valid) {
-        // Errores de validación: no aceptar, solo mostrar errores
-        return
-      }
-      
-      // Simplificar si es necesario
-      const simplified = simplifyGeometry(feature, 0.00001)
-      if (simplified !== feature) {
-        // Se simplificó - avisar al usuario
-        console.warn("Geometría simplificada automáticamente")
-      }
-      
-      setSelectedGeometry(simplified)
-      onGeometryChange(simplified)
-    }
+    const simplified = simplifyGeometry(feature) as Feature
+    setCurrent(simplified)
+    // Solo se informa al formulario si el polígono es válido
+    onGeometryChange(validatePolygon(simplified).valid ? simplified : null)
   }
-
-  const handleEditEnd = (geojson: any) => {
-    const feature = geojson as GeoJSON.Feature
-    if (feature.geometry.type === "Polygon") {
-      const result = validatePolygon(feature)
-      if (!result.valid) {
-        // Rechazar edición inválida - el componente DrawControl debería manejar esto
-        // Pero por seguridad, validamos aquí también
-        return
-      }
-      
-      const simplified = simplifyGeometry(feature, 0.00001)
-      setSelectedGeometry(simplified)
-      onGeometryChange(simplified)
-    }
-  }
-
-  const handleRemove = () => {
-    setSelectedGeometry(null)
-    onGeometryChange(null)
-  }
-
-  if (!mapRef.current) {
-    return null // Mapa aún no inicializado
-  }
-
-  const hasErrors = validationErrors.length > 0
 
   return (
     <div className="map-editor-wrapper">
-      <div
-        className="map-container"
-        style={{ height: height, width: "100%" }}
-        ref={mapRef}
+      <MapContainer
+        center={DEFAULT_CENTER}
+        zoom={DEFAULT_ZOOM}
+        style={{ height, width: "100%", borderRadius: "0.5rem" }}
+        scrollWheelZoom
       >
-        {/* Capas base */}
-        <BaseLayers
-          selectedLayer="openstreetmap"
-          onLayerChange={() => {}}
-        />
+        <LayersControl position="topright">
+          <LayersControl.BaseLayer checked name="OpenStreetMap">
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              maxZoom={19}
+            />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="Satélite (Esri)">
+            <TileLayer
+              attribution="&copy; Esri"
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              maxZoom={19}
+            />
+          </LayersControl.BaseLayer>
+        </LayersControl>
 
-        {/* Capas vectoriales (lotes dibujados) */}
-        <VectorLayer
-          geojson={{ type: "FeatureCollection", features: [] }}
-          layerId="drawn-lots"
-        />
+        <LotLayer initialGeometry={initialGeometry} readOnly={readOnly} onChange={handleChange} />
+      </MapContainer>
 
-        {/* Control de dibujo - solo modo no readOnly */}
-        {!readOnly && (
-          <DrawControl
-            onDrawEnd={handleDrawEnd}
-            onEditEnd={handleEditEnd}
-            onRemove={handleRemove}
-            drawnItemsRef={mapRef}
-          />
-        )}
-
-        {/* Layer de geometría actual */}
-        {selectedGeometry && (
-          <VectorLayer
-            geojson={{ type: "FeatureCollection", features: [selectedGeometry] }}
-            style={({
-              feature,
-            }) => ({
-              color: hasErrors ? "#dc2626" : "#3388ff",
-              weight: 2,
-              fillColor: hasErrors ? "#fca5a5" : "#22c55e",
-              fillOpacity: 0.4,
-            })}
-          />
-        )}
-      </div>
-
-      {/* Panel de información y validación */}
       {!readOnly && (
-        <div className={`map-editor-info ${hasErrors ? 'has-errors' : ''}`}>
-          <div className="info-header">
-            <span className="info-title">Información del lote</span>
-            {!readOnly && (
-              <button
-                className="map-editor-close"
-                onClick={() => {
-                  setSelectedGeometry(null)
-                  onGeometryChange(null)
-                }}
-                title="Limpiar geometría"
-                aria-label="Limpiar geometría"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path d="M18 6L6 18M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
-
-          {/* Área */}
-          {showArea && areaHa !== null && (
-            <div className="info-row">
-              <span className="info-label">Área:</span>
-              <span className={`info-value ${areaHa !== null && areaHa < 0.01 ? 'error' : ''}`}>
-                {areaHa.toFixed(4)} ha
-                {areaHa !== null && areaHa < 0.01 && (
-                  <span className="error-badge">Mín: 0.01 ha</span>
-                )}
-              </span>
-            </div>
+        <div className="mt-2 rounded-lg border border-gray-200 bg-white p-3 text-sm">
+          {!current && (
+            <p className="text-gray-500">
+              Usá el botón de polígono (o rectángulo) de la izquierda para dibujar el lote. Doble clic o clic en el primer punto para cerrar.
+            </p>
           )}
-
-          {/* Vértices */}
-          {showVertexCount && (
-            <div className="info-row">
-              <span className="info-label">Vértices:</span>
-              <span className={`info-value ${vertexCount > 5000 ? 'error' : vertexCount > 4000 ? 'warning' : ''}`}>
-                {vertexCount.toLocaleString()} / {MAX_VERTICES.toLocaleString()}
-                {vertexCount > MAX_VERTICES && <span className="error-badge">Excede límite</span>}
-                {vertexCount > 4000 && vertexCount <= MAX_VERTICES && <span className="warning-badge">Cerca del límite</span>}
-              </span>
-            </div>
-          )}
-
-          {/* Errores */}
-          {validationErrors.length > 0 && (
-            <div className="validation-errors">
-              {validationErrors.map((error, i) => (
-                <div key={i} className="error-item">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="15" y1="9" x2="9" y2="15" />
-                    <line x1="9" y1="9" x2="15" y2="15" />
-                  </svg>
-                  <span>{error}</span>
-                </div>
+          {validation && (
+            <div className="space-y-1">
+              {showArea && validation.areaHa !== null && (
+                <p>
+                  <span className="font-medium">Área aproximada:</span> {validation.areaHa.toFixed(2)} ha
+                </p>
+              )}
+              {showVertexCount && (
+                <p>
+                  <span className="font-medium">Vértices:</span> {validation.vertexCount.toLocaleString()} / {MAX_VERTICES.toLocaleString()}
+                </p>
+              )}
+              {validation.errors.map((error, i) => (
+                <p key={`e${i}`} className="text-red-600">✖ {error}</p>
+              ))}
+              {validation.warnings.map((warning, i) => (
+                <p key={`w${i}`} className="text-amber-600">⚠ {warning}</p>
               ))}
             </div>
           )}
-
-          {/* Advertencias */}
-          {validationWarnings.length > 0 && (
-            <div className="validation-warnings">
-              {validationWarnings.map((warning, i) => (
-                <div key={i} className="warning-item">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                    <line x1="12" y1="9" x2="12" y2="13" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                  </svg>
-                  <span>{warning}</span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Botón limpiar (solo modo no readOnly) */}
-          {!readOnly && (
-            <button
-              className="map-editor-close"
-              onClick={() => {
-                setSelectedGeometry(null)
-                onGeometryChange(null)
-              }}
-              title="Limpiar geometría"
-              aria-label="Limpiar geometría"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Leyenda de capas base (solo readOnly) */}
-      {readOnly && (
-        <div className="map-editor-info read-only">
-          <span className="info-title">Mapa de referencia</span>
-          <span className="info-label">Modo solo lectura - Use las capas base para navegación</span>
         </div>
       )}
     </div>
   )
 }
-
-// Estilos CSS inline usando className
-// Los estilos se definen en map.css

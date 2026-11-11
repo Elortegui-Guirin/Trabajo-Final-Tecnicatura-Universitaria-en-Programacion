@@ -15,6 +15,8 @@ const lotSchema = z.object({
     coordinates: z.array(
       z.array(z.array(z.number()))
     ), // [[[lon, lat], ...], [[lon, lat], ...]] para interiores
+  }).refine((g) => (g.coordinates[0]?.length ?? 0) >= 4, {
+    message: "Dibujá el lote en el mapa antes de guardar",
   }),
   change_reason: z.string().max(500).optional(),
 })
@@ -32,6 +34,7 @@ export function LotForm() {
   const [geometry, setGeometry] = useState<GeoJSONPolygon | null>(null)
   const [areaHa, setAreaHa] = useState<number | null>(null)
   const [editing, setEditing] = useState(false)
+  const [serverError, setServerError] = useState<string | null>(null)
 
   const {
     register,
@@ -66,6 +69,7 @@ export function LotForm() {
   }
 
   const onSubmit = async (data: LotFormData) => {
+    setServerError(null)
     try {
       if (isEdit && id) {
         await updateMutation.mutateAsync({ 
@@ -81,10 +85,11 @@ export function LotForm() {
       }
       navigate("/lots")
     } catch (err: any) {
-      // Errores de validación server-side
-      if (err?.response?.data?.detail) {
-        // Manejar errores de geometría/área inválida
-      }
+      // Errores de validación server-side (área fuera de rango, nombre repetido, geometría inválida)
+      const detail = err?.response?.data?.detail
+      if (typeof detail === "string") setServerError(detail)
+      else if (Array.isArray(detail)) setServerError(detail.map((d: any) => d.msg).join(". "))
+      else setServerError("No se pudo guardar el lote. Revisá los datos e intentá de nuevo.")
     }
   }
 
@@ -144,6 +149,12 @@ export function LotForm() {
             <span className="text-2xl font-bold text-primary-600">{areaHa.toFixed(2)} ha</span>
           </div>
           <p className="text-xs text-gray-500 mt-1">Valor definitivo calculado por el servidor al guardar (mín. 0.01 ha)</p>
+        </div>
+      )}
+
+      {serverError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          {serverError}
         </div>
       )}
 

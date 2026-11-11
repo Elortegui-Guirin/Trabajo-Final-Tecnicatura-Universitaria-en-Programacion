@@ -13,12 +13,20 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Interceptor para adjuntar access token
+// Lee los tokens guardados por el store (zustand persist) sin romper si no hay nada
+const readStoredAuth = (): { accessToken?: string | null; refreshToken?: string | null } => {
+  try {
+    const raw = localStorage.getItem('geoforraje-auth')
+    return raw ? JSON.parse(raw)?.state ?? {} : {}
+  } catch {
+    return {}
+  }
+}
+
+// Interceptor para adjuntar access token (si el request no trae uno propio)
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('geoforraje-auth') 
-    ? JSON.parse(localStorage.getItem('geoforraje-auth')!).state.accessToken 
-    : null
-  if (token) {
+  const token = readStoredAuth().accessToken
+  if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
@@ -40,7 +48,11 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const url: string = originalRequest?.url || ''
+    const isAuthEndpoint = ['/auth/login', '/auth/register', '/auth/refresh'].some((p) => url.includes(p))
+    const storedRefresh = readStoredAuth().refreshToken
+    // Solo intentar refrescar si hay sesión guardada y no es un endpoint de login/registro
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint && storedRefresh) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
@@ -54,7 +66,7 @@ api.interceptors.response.use(
       isRefreshing = true
 
       try {
-        const refreshToken = JSON.parse(localStorage.getItem('geoforraje-auth')!).state.refreshToken
+        const refreshToken = storedRefresh
         const { data } = await axios.post<TokenResponse>(
           `${API_BASE_URL}/auth/refresh`,
           { refresh_token: refreshToken }
@@ -87,7 +99,9 @@ export const authApi = {
   register: (data: UserRegister) => api.post<UserPublic>('/auth/register', data),
   login: (data: UserLogin) => api.post<TokenResponse>('/auth/login', data),
   refresh: (data: TokenRefresh) => api.post<TokenResponse>('/auth/refresh', data),
-  me: () => api.get<UserPublic>('/auth/me'),
+  // Se puede pasar el token recién obtenido (todavía no está guardado en el store)
+  me: (accessToken?: string) =>
+    api.get<UserPublic>('/auth/me', accessToken ? { headers: { Authorization: `Bearer ${accessToken}` } } : undefined),
   
   // Nuevos endpoints Fase 2
   verifyEmail: (data: VerifyEmailRequest) => api.post<AuthMessageResponse>('/auth/verify-email', data),

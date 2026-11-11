@@ -14,6 +14,15 @@ const loginSchema = z.object({
 
 type LoginForm = z.infer<typeof loginSchema>
 
+// Convierte el error de la API en un texto para mostrar (detail puede ser string o lista de errores)
+const apiErrorMessage = (err: any, fallback: string): string => {
+  const detail = err?.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) return detail.map((d: any) => d?.msg).filter(Boolean).join('. ') || fallback
+  if (!err?.response) return 'No se pudo conectar con el servidor'
+  return fallback
+}
+
 export function LoginPage() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
@@ -29,11 +38,11 @@ export function LoginPage() {
     setLoading(true)
     try {
       const { data: tokens } = await authApi.login(data)
-      const { data: user } = await authApi.me()
+      const { data: user } = await authApi.me(tokens.access_token)
       login(tokens, user)
       navigate('/dashboard')
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Error al iniciar sesión')
+      setError(apiErrorMessage(err, 'Error al iniciar sesión'))
     } finally {
       setLoading(false)
     }

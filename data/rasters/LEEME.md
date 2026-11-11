@@ -17,4 +17,4 @@ Cada archivo es un mapa de **tasa de crecimiento en kg MS/ha/día** de una espec
 - Cualquier CRS: el lote (EPSG:4326) se reproyecta al CRS del raster.
 - Los lotes tienen que caer dentro de la extensión del raster; si el lote es más
   chico que un píxel, el análisis falla con "No hay datos válidos".
-- Los `.tif` no se suben a git (ver `.gitignore`).
+- Los `.tif` se suben al repositorio. Los recortes que genera la app (`clipped/`) no.

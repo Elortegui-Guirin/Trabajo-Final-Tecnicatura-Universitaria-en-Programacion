@@ -11,3 +11,4 @@ export function LotDetailPage() {
   if (error || !lot) return <div className="py-8 text-center text-red-500">Lote no encontrado</div>
 
   return <LotDetail lot={lot} />
+}

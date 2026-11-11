@@ -252,7 +252,7 @@ export function LotList({ onView, onEdit }: LotListProps) {
                     </td>
                   </tr>
                 )
-              )}
+              })
             )}
           </tbody>
         </table>

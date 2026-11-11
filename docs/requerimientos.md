@@ -22,7 +22,7 @@
 | | - Listar lotes con paginación y búsqueda por nombre | | |
 | **FR-04** | **Visualización Mapa** | Map/Leaflet | Alta |
 | | - Cargar capas base (OSM, Satélite) | | |
-| | - Dibujar polígonos con `leaflet.pm` | | |
+| | - Dibujar polígonos con Geoman (`@geoman-io/leaflet-geoman-free`) | | |
 | | - Editar y eliminar geometrías dibujadas | | |
 | | - Mostrar lotes registrados como capas vectoriales | | |
 | **FR-05** | **Análisis Forrajero** | Analyses | Media |

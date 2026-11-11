@@ -126,7 +126,7 @@ export function LotDetail({ lot }: LotDetailProps) {
               </div>
             )}
           </div>
-        }
+        )}
       </div>
 
       {/* Acciones de análisis */}

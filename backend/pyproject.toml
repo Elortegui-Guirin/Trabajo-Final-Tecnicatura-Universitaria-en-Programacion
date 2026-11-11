@@ -13,6 +13,10 @@ fastapi = "^0.110"
 uvicorn = {extras = ["standard"], version = "^0.29"}
 sqlmodel = ">=0.0.16,<0.1"
 asyncpg = "^0.29"
+# SQLAlchemy async necesita greenlet (las versiones nuevas ya no lo instalan solas)
+greenlet = "^3.0"
+# geoalchemy2 0.14 no es compatible con SQLAlchemy 2.1: fijar la rama 2.0
+sqlalchemy = {extras = ["asyncio"], version = ">=2.0.30,<2.1"}
 alembic = "^1.13"
 psycopg2-binary = "^2.9"
 python-jose = {extras = ["cryptography"], version = "^3.3"}

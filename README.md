@@ -36,7 +36,7 @@ Mapas actuales: **31/10/2026**, cobertura provincia de Buenos Aires (EPSG:4326).
 - **Zustand** - Client state management
 - **React Router v6** - Routing
 - **React Hook Form + Zod** - Formularios validados
-- **Leaflet + react-leaflet + leaflet.pm** - Mapas interactivos
+- **Leaflet + react-leaflet + Geoman** (`@geoman-io/leaflet-geoman-free`) - Mapas interactivos y dibujo de polígonos
 - **Recharts** - Gráficos
 
 ### DevOps
@@ -173,7 +173,7 @@ geoforraje/
 │   └── pyproject.toml
 ├── frontend/
 │   ├── src/
-│   │   ├── components/    # Shared: Layout, MapView/* (Leaflet + leaflet.pm)
+│   │   ├── components/    # Shared: Layout, MapView/MapEditor (react-leaflet + Geoman)
 │   │   ├── pages/         # DashboardPage
 │   │   ├── modules/       # Feature modules
 │   │   │   ├── auth/      # Login, Register, store, api
@@ -210,7 +210,7 @@ geoforraje/
 | 1 | Repositorio, README, modelo de datos, Docker, CI | 🟡 Completada salvo CI (no hay GitHub Actions) |
 | 2 | Autenticación JWT (register, login, refresh con rotación, me) | ✅ Completada |
 | 3 | CRUD Lotes + validación geometría + ownership + versiones | ✅ Completada |
-| 4 | Mapa Leaflet + leaflet.pm (dibujar, editar, capas base, popups) | ✅ Completada |
+| 4 | Mapa Leaflet + Geoman (dibujar, editar, capas base OSM/satélite) | ✅ Completada (reescrita el 11/11, ver CHANGELOG) |
 | 5 | Análisis raster (GeoTIFF, Rasterio, Celery) + despliegue prod | 🟡 Análisis implementado con mapas reales; despliegue prod sin probar |
 
 Los archivos `docs/fase_*.md` son la especificación original de cada fase; el estado real y los cambios están en `docs/CHANGELOG.md`.

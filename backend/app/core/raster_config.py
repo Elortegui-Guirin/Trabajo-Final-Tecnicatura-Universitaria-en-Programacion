@@ -11,6 +11,10 @@ class RasterSource(BaseModel):
     path: str
     band: int = 1
     nodata: Optional[float] = None
+    # Rango de valores válidos: lo que quede fuera se ignora en las estadísticas.
+    # Los mapas MODIS traen algunos píxeles con valores negativos absurdos (artefactos).
+    valid_min: Optional[float] = None
+    valid_max: Optional[float] = None
     description: str = ""
     crs: Optional[str] = None  # Si None, se detecta del archivo
     
@@ -36,6 +40,7 @@ RASTER_CATALOG: Dict[ResourceType, RasterSource] = {
         path="/data/rasters/alfalfa.tif",
         band=1,
         nodata=None,
+        valid_min=0.0,  # una tasa de crecimiento negativa es un artefacto del mapa
         description=f"Alfalfa - tasa de crecimiento ({_UNIDAD})",
         version=_VERSION_MAPAS,
         date=_FECHA_MAPAS,
@@ -45,6 +50,7 @@ RASTER_CATALOG: Dict[ResourceType, RasterSource] = {
         path="/data/rasters/festuca.tif",
         band=1,
         nodata=None,
+        valid_min=0.0,  # una tasa de crecimiento negativa es un artefacto del mapa
         description=f"Festuca - tasa de crecimiento ({_UNIDAD})",
         version=_VERSION_MAPAS,
         date=_FECHA_MAPAS,
@@ -54,6 +60,7 @@ RASTER_CATALOG: Dict[ResourceType, RasterSource] = {
         path="/data/rasters/raigras.tif",
         band=1,
         nodata=None,
+        valid_min=0.0,  # una tasa de crecimiento negativa es un artefacto del mapa
         description=f"Raigrás - tasa de crecimiento ({_UNIDAD})",
         version=_VERSION_MAPAS,
         date=_FECHA_MAPAS,
@@ -63,6 +70,7 @@ RASTER_CATALOG: Dict[ResourceType, RasterSource] = {
         path="/data/rasters/pastizal.tif",
         band=1,
         nodata=None,
+        valid_min=0.0,  # una tasa de crecimiento negativa es un artefacto del mapa
         description=f"Pastizal natural - tasa de crecimiento ({_UNIDAD})",
         version=_VERSION_MAPAS,
         date=_FECHA_MAPAS,

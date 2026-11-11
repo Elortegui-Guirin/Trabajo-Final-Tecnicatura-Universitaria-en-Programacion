@@ -21,22 +21,31 @@ export function useAnalyses(params?: {
 }) {
   return useQuery({
     queryKey: analysisKeys.list(params || {}),
-    queryFn: () => analysesApi.list(params),
+    queryFn: () => analysesApi.list(params).then((r) => r.data),
+    // Mientras haya análisis pendientes o en proceso, volver a consultar cada 2 s
+    refetchInterval: (query) => {
+      const items = query.state.data?.items ?? []
+      return items.some((a) => a.status === 'pending' || a.status === 'processing') ? 2000 : false
+    },
   })
 }
 
 export function useAnalysis(id: string) {
   return useQuery({
     queryKey: analysisKeys.detail(id),
-    queryFn: () => analysesApi.get(id),
+    queryFn: () => analysesApi.get(id).then((r) => r.data),
     enabled: !!id,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status
+      return status === 'pending' || status === 'processing' ? 2000 : false
+    },
   })
 }
 
 export function useTimeSeries(lotId: string, resourceType: ResourceType) {
   return useQuery({
     queryKey: analysisKeys.timeseries(lotId, resourceType),
-    queryFn: () => analysesApi.getTimeSeries(lotId, resourceType),
+    queryFn: () => analysesApi.getTimeSeries(lotId, resourceType).then((r) => r.data),
     enabled: !!lotId && !!resourceType,
   })
 }
@@ -44,7 +53,7 @@ export function useTimeSeries(lotId: string, resourceType: ResourceType) {
 export function useCreateAnalysis() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: AnalysisCreate) => analysesApi.create(data),
+    mutationFn: (data: AnalysisCreate) => analysesApi.create(data).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: analysisKeys.lists() })
     },
@@ -55,11 +64,10 @@ export function useCreateAnalysis() {
 export function useAnalysisPolling(analysisId: string, enabled: boolean) {
   return useQuery({
     queryKey: analysisKeys.detail(analysisId),
-    queryFn: () => analysesApi.get(analysisId),
+    queryFn: () => analysesApi.get(analysisId).then((r) => r.data),
     // TanStack Query v5: refetchInterval recibe la query (no los datos).
-    // query.state.data es la respuesta de axios -> el análisis está en .data
     refetchInterval: (query) => {
-      const status = query.state.data?.data?.status
+      const status = query.state.data?.status
       if (!status) return 3000
       return status === 'pending' || status === 'processing' ? 3000 : false
     },

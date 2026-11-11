@@ -18,14 +18,14 @@ export const lotKeys = {
 export function useLots(params?: LotSearchParams & { page?: number; size?: number }) {
   return useQuery({
     queryKey: lotKeys.list(params || {}),
-    queryFn: () => lotsApi.list(params),
+    queryFn: () => lotsApi.list(params).then((r) => r.data),
   })
 }
 
 export function useLot(id: string) {
   return useQuery({
     queryKey: lotKeys.detail(id),
-    queryFn: () => lotsApi.get(id),
+    queryFn: () => lotsApi.get(id).then((r) => r.data),
     enabled: !!id,
   })
 }
@@ -33,7 +33,7 @@ export function useLot(id: string) {
 export function useLotVersions(id: string) {
   return useQuery({
     queryKey: lotKeys.versions(id),
-    queryFn: () => lotsApi.getVersions(id),
+    queryFn: () => lotsApi.getVersions(id).then((r) => r.data),
     enabled: !!id,
   })
 }
@@ -41,7 +41,7 @@ export function useLotVersions(id: string) {
 export function useCreateLot() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (data: LotCreate) => lotsApi.create(data),
+    mutationFn: (data: LotCreate) => lotsApi.create(data).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: lotKeys.lists() })
     },
@@ -51,7 +51,7 @@ export function useCreateLot() {
 export function useUpdateLot() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: LotUpdate }) => lotsApi.update(id, data),
+    mutationFn: ({ id, data }: { id: string; data: LotUpdate }) => lotsApi.update(id, data).then((r) => r.data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: lotKeys.detail(variables.id) })
       queryClient.invalidateQueries({ queryKey: lotKeys.lists() })
@@ -73,7 +73,7 @@ export function useDeleteLot() {
 export function useRestoreLot() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => lotsApi.restore(id),
+    mutationFn: (id: string) => lotsApi.restore(id).then((r) => r.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: lotKeys.lists() })
     },

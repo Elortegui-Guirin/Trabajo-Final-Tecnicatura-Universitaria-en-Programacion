@@ -69,7 +69,7 @@ graph TD
 - **Componentes**: 
   - `AuthModule`: Login, Register, ProtectedRoute
   - `LotsModule`: LotsPage, LotFormPage, LotDetailPage
-  - `MapModule`: MapView, MapEditor, VectorLayer, DrawControl, BaseLayers, useMap hook
+  - `MapModule`: MapEditor (react-leaflet + Geoman, editable o solo lectura) y MapView; validación en `hooks/useGeoJSON.ts`
   - `DashboardModule`: DashboardPage (accesible tras login)
 
 #### Backend (Capa de Lógica)
@@ -117,7 +117,7 @@ sequenceDiagram
     U->>FE: Clic "Ver Mapa" / "Crear Lote"
     FE->>FE: Componente MapEditor se monta
     FE->>U: Usuario dibuja en mapa Leaflet
-    FE->>FE: useMap hook captura geojson onDrawEnd
+    FE->>FE: Geoman (evento pm:create) entrega el GeoJSON al formulario
     FE->>BE: POST /lots (name + geometry GeoJSON)
     BE->>BE: lot_service.validate_geometry() (Shapely + make_valid)
     BE->>BD: INSERT lot con geometría WKB + area_ha calculada

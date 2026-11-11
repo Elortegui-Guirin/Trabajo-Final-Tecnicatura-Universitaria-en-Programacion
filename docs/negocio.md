@@ -54,8 +54,8 @@
 
 | Regla | Descripción | Implementación |
 |-------|-------------|----------------|
-| **Capas base obligatorias** | El mapa debe cargar al menos una capa base (OSM por defecto) | `BaseLayers.tsx` en frontend |
-| **Toolbar pm.enabled** | `leaflet.pm` solo permite draw polígono, edit, remove, cut | Configuración en `DrawControl.tsx` |
+| **Capas base obligatorias** | El mapa debe cargar al menos una capa base (OSM por defecto, satélite Esri opcional) | `LayersControl` en `MapEditor.tsx` |
+| **Herramientas de dibujo** | Geoman permite dibujar polígono o rectángulo, editar vértices, mover y borrar. Un solo polígono por lote: dibujar otro reemplaza al anterior | `LotLayer` en `MapEditor.tsx` |
 | **Coordenadas [lon, lat]** | GeoJSON debe usar orden WGS84 (lon before lat) | Validación en `validatePolygon()` useGeoJSON hook |
 | **Área calculada client-side** | Estimación inmediata del área para feedback rápido | `calculateAreaHa()` useGeoJSON hook (aprox) |
 | **Validación definitive server** | El área definitiva se calcula en backend y reemplaza el cliente | `lot_service.calculate_area_ha()` en `lot_service.py` |

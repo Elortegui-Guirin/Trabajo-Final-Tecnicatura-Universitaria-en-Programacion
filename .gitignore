@@ -83,7 +83,6 @@ backup_*.sql
 # Misc
 *.tgz
 .cache/
-# Rasters de datos (pesados, no se versionan)
-data/rasters/*.tif
-data/rasters/*.tiff
+# Rasters: los mapas de data/rasters/*.tif SÍ se versionan (~5 MB c/u).
+# Solo se ignoran los recortes que genera la app.
 data/rasters/clipped/
