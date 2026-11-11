@@ -26,9 +26,9 @@
 | | - Editar y eliminar geometrías dibujadas | | |
 | | - Mostrar lotes registrados como capas vectoriales | | |
 | **FR-05** | **Análisis Forrajero** | Analyses | Media |
-| | - Seleccionar uno de 4 recursos forrajeros | | |
-| | - Consultar capa raster correspondiente | | |
-| | - Calcular tasa promedio de crecimiento dentro del lote | | |
+| | - Seleccionar una de 4 especies: alfalfa, festuca, raigrás o pastizal natural | | |
+| | - Consultar el mapa raster (GeoTIFF MODIS) de esa especie | | |
+| | - Calcular tasa promedio de crecimiento (kg MS/ha/día) dentro del lote | | |
 | | - Visualizar resultado obtenido | | |
 | **FR-06** | **Protección de Rutas** | Auth | Alta |
 | | - Rutas privadas requieren token Bearer válido | | |
@@ -78,3 +78,18 @@
 | **NFR-14** | Linting con `ruff` y `mypy` en CI/CD |
 | **NFR-15** | Tests con coverage mínimo 80% (`make test`) |
 | **NFR-16** | Formateo con `ruff format` y `prettier` |
+
+### 3. Estado de implementación (al 11/11/2026)
+
+| ID | Estado | Observaciones |
+|----|--------|---------------|
+| FR-01 | ✅ | Además: verificación de email y recuperación de contraseña |
+| FR-02 | ✅ | Rotación de refresh token con `jti` |
+| FR-03 | ✅ | Eliminación lógica (los análisis se conservan, no en cascada), restauración e historial de versiones |
+| FR-04 | ✅ | |
+| FR-05 | ✅ | Con mapas reales del 31/10/2026; procesamiento asíncrono con Celery |
+| FR-06 | ✅ | |
+| FR-07 | ❌ Pendiente | Export/Import GeoJSON |
+| NFR-12 | 🟡 | Migraciones de Alembic desactualizadas; hoy las tablas se crean desde los modelos |
+| NFR-14 (CI/CD) | ❌ Pendiente | No hay workflow de GitHub Actions |
+| NFR-15 (coverage 80%) | 🟡 Sin medir | Tests de backend existen; faltan tests de frontend |

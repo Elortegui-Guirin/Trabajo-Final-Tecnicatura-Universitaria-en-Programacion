@@ -3,6 +3,17 @@
 ## Descripción
 API y aplicación web para la gestión de lotes agrícolas y análisis de recursos forrajeros mediante procesamiento de imágenes raster (GeoTIFF).
 
+El usuario dibuja sus lotes sobre el mapa y GeoForraje calcula, para cada lote, la **tasa de crecimiento promedio (kg MS/ha/día)** de cuatro especies forrajeras a partir de mapas derivados de MODIS (píxel ≈ 11 ha):
+
+| Especie | Archivo | ID interno |
+|---------|---------|------------|
+| Alfalfa | `data/rasters/alfalfa.tif` | `resource_1` |
+| Festuca | `data/rasters/festuca.tif` | `resource_2` |
+| Raigrás | `data/rasters/raigras.tif` | `resource_3` |
+| Pastizal natural | `data/rasters/pastizal.tif` | `resource_4` |
+
+Mapas actuales: **31/10/2026**, cobertura provincia de Buenos Aires (EPSG:4326). Ver `data/rasters/LEEME.md`.
+
 ---
 
 ## Stack Tecnológico
@@ -14,6 +25,7 @@ API y aplicación web para la gestión de lotes agrícolas y análisis de recurs
 - **Alembic** - Migraciones de base de datos
 - **Python-JOSE + Passlib[bcrypt]** - Autenticación JWT
 - **Rasterio + NumPy** - Procesamiento de imágenes geoespaciales
+- **Celery + Redis** - Procesamiento de análisis en segundo plano
 - **Prometheus FastAPI Instrumentator** - Métricas
 
 ### Frontend
@@ -30,7 +42,7 @@ API y aplicación web para la gestión de lotes agrícolas y análisis de recurs
 ### DevOps
 - **Docker Compose** - Orquestación local
 - **Nginx** - Reverse proxy producción
-- **GitHub Actions** - CI/CD
+- **GitHub Actions** - CI/CD *(pendiente: todavía no hay workflow en el repo)*
 
 ---
 
@@ -49,23 +61,20 @@ git clone https://github.com/Elortegui-Guirin/Trabajo-Final-Tecnicatura-Universi
 cd Trabajo-Final-Tecnicatura-Universitaria-en-Programacion
 
 # 2. Levantar todos los servicios
-#    (backend, frontend, postgres+postgis, pgadmin)
-make up
+#    (backend, worker de Celery, frontend, postgres+postgis, redis, pgadmin)
+make up            # o: docker compose up -d --build
 
 # 3. Verificar que todo funciona
-make health
-# Debería mostrar:
-# === Backend ===  {"status":"ok","database":"ok",...}
-# === Frontend === 200 OK
-# === Postgres === accepting connections
-# === PgAdmin === 200 OK
+curl http://localhost:8000/health
+# Debería mostrar: {"status":"ok","database":"ok",...}
+docker compose ps  # todos los servicios en "running"/"healthy"
 
 # 4. Las tablas se crean solas al iniciar el backend (AUTO_CREATE_TABLES=true).
 #    NO correr `make migrate` por ahora: las migraciones de Alembic quedaron
 #    desactualizadas respecto de los modelos y hay que regenerarlas.
 
 # 5. Para probar los análisis: copiar los GeoTIFF en data/rasters/
-#    (alfalfa.tif, festuca.tif, raigras.tif, pastizal.tif - ver data/rasters/LEEME.md)
+#    Los mapas ya vienen en el repo: data/rasters/{alfalfa,festuca,raigras,pastizal}.tif
 ```
 
 ### Accesos una vez levantado
@@ -87,6 +96,12 @@ make health
 4. Ve a **"Mis Lotes"** → **"Nuevo Lote"**
 5. Dibuja un polígono en el mapa → ponle nombre → **"Crear lote"**
 6. El lote aparece en la lista con su área calculada en hectáreas
+7. Entra al lote → **"Ver historial de análisis"** → **"Analizar Alfalfa"** (o festuca, raigrás, pastizal)
+8. El análisis se procesa en segundo plano (worker de Celery) y en unos segundos pasa a **Completado** con la tasa promedio, mínimo, máximo y percentiles
+
+> **Lote de ejemplo para probar**: dibujar un rectángulo cerca de Azul, entre longitud −59,900 y −59,888 y latitud −36,800 y −36,790 (~120 ha). Resultado esperado: alfalfa ≈ 12,6 · festuca ≈ 12,6 · raigrás ≈ 17,6 · pastizal ≈ 9,7 kg MS/ha/día.
+>
+> El lote tiene que estar dentro de la provincia de Buenos Aires y fuera de zonas urbanas o agua (sin dato en los mapas).
 
 ---
 
@@ -97,7 +112,7 @@ make help           # Ver todos los comandos disponibles
 make up             # Levantar todo (docker compose up -d --build)
 make down           # Bajar servicios y volúmenes
 make logs           # Ver logs de todos los servicios
-make health         # Health check de todos los servicios
+docker compose logs -f celery-worker   # Logs del worker de análisis
 
 # Backend
 make backend-shell  # Shell en contenedor backend
@@ -145,41 +160,41 @@ geoforraje/
 │   │   ├── api/           # Dependencias FastAPI (deps, security)
 │   │   ├── core/          # Config, security (JWT, bcrypt)
 │   │   ├── db/            # Database engine, session, init
-│   │   ├── models/        # SQLModel: User, Lot, Analysis
-│   │   ├── routers/       # Endpoints: auth, lots, health
+│   │   ├── core/          # Config, security, raster_config (catálogo de mapas)
+│   │   ├── models/        # SQLModel: User, Lot, LotVersion, Analysis, AuditLog
+│   │   ├── routers/       # Endpoints: auth, lots, analyses, health
 │   │   ├── schemas/       # Pydantic: request/response models
-│   │   ├── services/      # Lógica: lot_service, geometry_service
-│   │   ├── workers/       # Background tasks (Fase 5)
-│   │   └── utils/         # Utilidades
-│   ├── alembic/           # Migraciones (versions/)
-│   ├── tests/             # pytest (auth, lots, health)
+│   │   ├── services/      # Lógica: lot_service, geometry_service, raster_service
+│   │   ├── workers/       # Celery: análisis raster + tareas periódicas
+│   │   └── utils/         # Generador de reportes PDF
+│   ├── alembic/           # Migraciones (desactualizadas, ver más abajo)
+│   ├── tests/             # pytest (auth, lots, raster, health)
 │   ├── Dockerfile
 │   └── pyproject.toml
 ├── frontend/
 │   ├── src/
-│   │   ├── components/    # Shared: Layout, MapView/*
+│   │   ├── components/    # Shared: Layout, MapView/* (Leaflet + leaflet.pm)
 │   │   ├── pages/         # DashboardPage
 │   │   ├── modules/       # Feature modules
 │   │   │   ├── auth/      # Login, Register, store, api
-│   │   │   ├── lots/      # List, Form, Detail, MapEditor
-│   │   │   ├── map/       # (Fase 4 componentes)
-│   │   │   └── results/   # (Fase 5)
-│   │   ├── hooks/         # useAuth, useLots, useGeoJSON, useMap
-│   │   ├── types/         # TypeScript types (api.ts)
+│   │   │   ├── lots/      # List, Form, Detail
+│   │   │   └── results/   # Análisis: historial, detalle, gráfico
+│   │   ├── hooks/         # useGeoJSON
+│   │   ├── types/         # Tipos TS (api.ts, analysis.ts con nombres de especies)
 │   │   └── styles/        # globals.css (Tailwind + components)
 │   ├── Dockerfile
 │   └── package.json
-├── shared/
-│   └── schemas/           # Contratos compartidos (generados)
-├── spec/
-│   └── printable/         # Spec por fase (5 archivos + README)
+├── data/
+│   └── rasters/           # Mapas GeoTIFF de tasa de crecimiento (4 especies)
 ├── docs/                  # Documentación adicional
 │   ├── diagrama_er.md     # ER Diagram (Mermaid)
 │   ├── arquitectura.md    # Arquitectura C4 + secuencia + despliegue
 │   ├── requerimientos.md  # FR/NFR formales
 │   ├── negocio.md         # Reglas de negocio
 │   ├── API_SPECS.md       # Documentación endpoints
-│   └── CONTRIBUTING.md    # Guía contribución
+│   ├── CHANGELOG.md       # Registro de cambios
+│   ├── CONTRIBUTING.md    # Guía contribución
+│   └── fase_*.md          # Especificación original de cada fase
 ├── docker-compose.yml     # Desarrollo
 ├── docker-compose.prod.yml # Producción
 ├── Makefile               # 40+ comandos
@@ -192,13 +207,20 @@ geoforraje/
 
 | Fase | Descripción | Estado |
 |------|-------------|--------|
-| 1 | Repositorio, README, modelo de datos, Docker, CI | ✅ Completada |
-| 2 | Autenticación JWT (register, login, refresh, me) | ✅ Completada |
-| 3 | CRUD Lotes + validación geometría + ownership | ✅ Completada |
+| 1 | Repositorio, README, modelo de datos, Docker, CI | 🟡 Completada salvo CI (no hay GitHub Actions) |
+| 2 | Autenticación JWT (register, login, refresh con rotación, me) | ✅ Completada |
+| 3 | CRUD Lotes + validación geometría + ownership + versiones | ✅ Completada |
 | 4 | Mapa Leaflet + leaflet.pm (dibujar, editar, capas base, popups) | ✅ Completada |
-| 5 | Análisis raster (GeoTIFF, Rasterio) + despliegue prod | ⏳ Pendiente |
+| 5 | Análisis raster (GeoTIFF, Rasterio, Celery) + despliegue prod | 🟡 Análisis implementado con mapas reales; despliegue prod sin probar |
 
-Ver `docs/` para especificación detallada por fase.
+Los archivos `docs/fase_*.md` son la especificación original de cada fase; el estado real y los cambios están en `docs/CHANGELOG.md`.
+
+### Pendientes conocidos
+- Regenerar las migraciones de Alembic para que coincidan con los modelos.
+- Workflow de CI (GitHub Actions) con lint + tests.
+- Tests de frontend (vitest) y correr `make frontend-typecheck`.
+- Export/Import de lotes en GeoJSON (FR-07, prioridad baja).
+- Serie temporal: cargar mapas de varias fechas por especie (la base ya guarda versión y fecha del raster en cada análisis).
 
 ---
 
@@ -212,6 +234,8 @@ Ver `docs/` para especificación detallada por fase.
 | `docs/negocio.md` | Reglas de negocio (validación geometría, auth, lotes, análisis) |
 | `docs/API_SPECS.md` | Endpoints, esquemas, códigos error, autenticación |
 | `docs/CONTRIBUTING.md` | Guía de contribución, ramas, commits, PRs, testing |
+| `docs/CHANGELOG.md` | Registro de cambios y pendientes |
+| `data/rasters/LEEME.md` | Mapas de tasa de crecimiento: archivos, especies, fecha |
 
 ---
 
@@ -226,8 +250,12 @@ ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=7
 CORS_ORIGINS=["http://localhost:5173"]
 RASTER_DATA_PATH=/data/rasters
+REDIS_URL=redis://redis:6379/0
+AUTO_CREATE_TABLES=true   # crea las tablas al iniciar (desarrollo)
 LOG_LEVEL=INFO
 ```
+
+En desarrollo no hace falta crear `.env`: `docker-compose.yml` ya define estas variables.
 
 ### Frontend (`.env` en `frontend/`)
 ```env
@@ -252,7 +280,11 @@ make frontend-test
 make test
 ```
 
-**Coverage mínimo**: 80%
+Los tests del backend usan una base de datos aparte (`geoforraje_test`), que se crea sola y se vacía antes de cada test. Celery se simula: los análisis quedan en `pending` y no se procesan rasters.
+
+Para correrlos con el entorno levantado: `docker compose exec backend pytest -v`
+
+**Coverage objetivo**: 80%
 
 ---
 
@@ -266,6 +298,8 @@ make fmt         # ruff format + prettier --write
 ---
 
 ## Migraciones (Alembic)
+
+> ⚠️ **Desactualizadas.** Las migraciones de `backend/alembic/versions/` no coinciden con los modelos actuales. Por ahora las tablas las crea el backend al iniciar (`AUTO_CREATE_TABLES=true`). Antes de producción hay que regenerarlas (`make migrate-create`) y poner `AUTO_CREATE_TABLES=false`.
 
 ```bash
 make migrate              # Aplicar pendientes
@@ -291,7 +325,7 @@ docker compose -f docker-compose.prod.yml up -d
 # - Backend: Gunicorn + Uvicorn workers
 # - Frontend: Nginx estático
 # - PostgreSQL + PostGIS
-# - Redis (para Celery en Fase 5)
+# - Redis + worker y beat de Celery (análisis raster)
 # - Prometheus + Grafana (monitoreo)
 ```
 

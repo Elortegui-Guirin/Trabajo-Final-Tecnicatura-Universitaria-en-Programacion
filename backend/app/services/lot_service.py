@@ -66,6 +66,24 @@ async def validate_area(area_ha: float) -> None:
         raise ValueError(f"Área demasiado grande: {area_ha:.4f} ha. Máximo: {MAX_AREA_HA} ha")
 
 
+async def ensure_unique_name(
+    session: AsyncSession,
+    user_id: UUID,
+    name: str,
+    exclude_lot_id: Optional[UUID] = None,
+) -> None:
+    """BR-03: el nombre del lote es único por usuario (entre sus lotes no eliminados)."""
+    stmt = select(Lot).where(
+        Lot.user_id == user_id,
+        func.lower(Lot.name) == name.strip().lower(),
+        Lot.deleted_at.is_(None),
+    )
+    if exclude_lot_id is not None:
+        stmt = stmt.where(Lot.id != exclude_lot_id)
+    if (await session.exec(stmt)).first():
+        raise ValueError(f"Ya tenés un lote llamado '{name}'. Elegí otro nombre.")
+
+
 async def get_next_version_number(session: AsyncSession, lot_id: UUID) -> int:
     """Obtiene el próximo número de versión para un lote."""
     from sqlmodel import select, func
@@ -109,8 +127,9 @@ async def create_lot(
     polygon = await validate_geometry(geometry)
     area_ha = await calculate_area_ha(polygon)
     
-    # Validar área
+    # Validar área y nombre único
     await validate_area(area_ha)
+    await ensure_unique_name(session, user_id, name)
     
     # Convertir a WKB para PostGIS (polígono ya validado y orientado)
     geom_wkb = from_shape(polygon, srid=4326)
@@ -217,6 +236,7 @@ async def update_lot(
     geometry_changed = False
     
     if name is not None:
+        await ensure_unique_name(session, user_id, name, exclude_lot_id=lot.id)
         lot.name = name
     
     if geometry is not None:

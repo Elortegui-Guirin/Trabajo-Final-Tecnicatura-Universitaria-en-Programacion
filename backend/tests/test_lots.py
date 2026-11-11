@@ -431,3 +431,16 @@ async def test_version_history_ordering(async_client: AsyncClient, auth_headers,
     assert versions[1]["change_reason"] == "Actualización 2"
     assert versions[2]["change_reason"] == "Actualización 1"
     assert versions[3]["change_reason"] == "Creación inicial"
+
+@pytest.mark.asyncio
+async def test_create_lot_duplicate_name(async_client: AsyncClient, auth_headers, sample_polygon):
+    """BR-03: no se permiten dos lotes con el mismo nombre para el mismo usuario."""
+    resp1 = await async_client.post(
+        "/lots", json={"name": "Lote Repetido", "geometry": sample_polygon}, headers=auth_headers
+    )
+    assert resp1.status_code == 201
+    resp2 = await async_client.post(
+        "/lots", json={"name": "lote repetido", "geometry": sample_polygon}, headers=auth_headers
+    )
+    assert resp2.status_code == 422
+    assert "Ya tenés un lote llamado" in resp2.json()["detail"]
