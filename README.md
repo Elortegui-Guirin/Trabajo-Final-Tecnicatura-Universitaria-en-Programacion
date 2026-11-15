@@ -224,6 +224,27 @@ Los archivos `docs/fase_*.md` son la especificación original de cada fase; el e
 
 ---
 
+## Features a futuro
+
+> **Nota:** los siguientes ítems son **ideas registradas**, no compromisos de entrega. Amplían el backlog del proyecto y **no** forman parte del alcance de la versión 1.0. (Los pendientes técnicos inmediatos están en "Pendientes conocidos".)
+
+| Feature | Descripción |
+|---------|-------------|
+| **Notificaciones por email reales** | Los endpoints de verificación de email y reseteo de contraseña funcionan, pero el envío real está simulado (solo registra en logs). Requiere integrar un proveedor (SendGrid, Mailgun, SES). |
+| **Alertas push y multi-canal** | Existe la base de un servicio de notificaciones (email/push/webhook) sin conectar a proveedores reales. Permitiría avisar al usuario cuando un análisis termina o se detecta una anomalía de crecimiento. |
+| **Integración con fuentes satelitales (Google Earth Engine / Sentinel)** | La tarea programada de actualización de mapas es un placeholder. Permitiría descargar y actualizar los GeoTIFF automáticamente desde imágenes satelitales, sin reemplazo manual. |
+| **Export / Import de lotes (GeoJSON)** | Requerimiento FR-07 de prioridad baja: descargar lotes como archivo GeoJSON o importar geometrías existentes desde archivos. |
+| **Trazabilidad activa de cambios (AuditLog)** | La tabla y el modelo `AuditLog` existen en la BD, pero el registro de quién modificó qué y cuándo queda como evolución futura (no está activo en el MVP). |
+| **Reporte PDF con mapa embebido** | El PDF actual incluye logo, metadata, estadísticas y leyenda, pero el mapa del lote queda como texto pendiente de incrustar como imagen. |
+| **Actualización en tiempo real (WebSockets)** | Hoy el estado de los análisis se consulta por polling. WebSockets actualizaría la UI sin necesidad de refrescos manuales. |
+| **Series temporales multi-fecha y comparación de campañas** | Se entrega la serie temporal básica por lote/especie; se prevé cargar mapas de varias fechas y comparar campañas o periodos. |
+| **App mobile** | Cliente móvil (React Native / Flutter) para consultar lotes y análisis en el campo sin necesidad de navegador. |
+| **API pública** | Exponer los endpoints con documentación y claves de acceso para que sistemas de terceros consuman el servicio. |
+| **Multi-tenant (organizaciones)** | La arquitectura está preparada (NFR-11), pero el modelo actual es single-user. Permitiría agrupar usuarios y lotes por organización. |
+| **Escalabilidad: microservicios y caching layer** | Separar análisis y mapa en servicios independientes, y cachear tokens/sesiones en Redis (hoy Redis se usa solo como broker de Celery). |
+
+---
+
 ## Documentación Adicional
 
 | Archivo | Descripción |
@@ -328,6 +349,20 @@ docker compose -f docker-compose.prod.yml up -d
 # - Redis + worker y beat de Celery (análisis raster)
 # - Prometheus + Grafana (monitoreo)
 ```
+
+---
+
+## Uso de IA
+
+Durante el desarrollo se utilizó **OpenCode con MiMoCode** como herramienta de apoyo en dos situaciones concretas:
+
+1. **Codificación de la interfaz de usuario (frontend React + Leaflet)**
+   Se usó para generar los componentes base de la UI (formularios, listas, mapa interactivo con dibujo de polígonos) porque el tiempo de entrega era acotado y se necesitaba acelerar esa parte del trabajo.
+   **Ventaja observada:** reducción significativa del tiempo de maquetación y generación de borradores funcionales, lo que permitió enfocar el esfuerzo del equipo en la lógica de negocio y las reglas de validación.
+
+2. **Brecha de conocimiento en tecnologías geoespaciales y de procesamiento (PostGIS, Rasterio, Celery)**
+   Se usó para entender e implementar el procesamiento de imágenes raster, el recorte por geometría del lote y la ejecución de tareas en background, porque el equipo no tenía experiencia previa con esas tecnologías.
+   **Ventaja observada:** la herramienta sirvió como apoyo para comprender el enfoque técnico y generar un primer borrador funcional sin bloquear el avance del proyecto, acortando la curva de aprendizaje.
 
 ---
 
