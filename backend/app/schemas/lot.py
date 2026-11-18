@@ -70,7 +70,7 @@ class LotSearchParams(BaseModel):
     area_max: Optional[float] = Field(default=None, le=MAX_AREA_HA)
     # Bounding box: [min_lon, min_lat, max_lon, max_lat]
     bbox: Optional[List[float]] = Field(default=None, min_length=4, max_length=4)
-    include_deleted: bool = False  # incluir lotes soft-deleted (solo admins)
+    include_deleted: bool = False  # incluir los lotes eliminados del propio usuario
 
 
 # Re-export para evitar circular imports

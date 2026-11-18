@@ -124,14 +124,13 @@ make backend-test   # pytest con coverage
 make frontend-shell # Shell en contenedor frontend
 make frontend-lint  # eslint + prettier check
 make frontend-fmt   # prettier --write
-make frontend-test  # vitest
+make frontend-test  # vitest (todavía no hay tests de frontend)
 make frontend-typecheck # tsc --noEmit
 
 # Base de Datos
 make migrate        # Aplicar migraciones (alembic upgrade head)
 make migrate-create MSG="descripción"  # Nueva migración
 make migrate-history # Ver historial
-make migrate-downgrade # Revertir última
 make db-shell       # psql en contenedor postgres
 
 # Calidad
@@ -158,13 +157,12 @@ geoforraje/
 ├── backend/
 │   ├── app/
 │   │   ├── api/           # Dependencias FastAPI (deps, security)
-│   │   ├── core/          # Config, security (JWT, bcrypt)
+│   │   ├── core/          # Config, security (JWT, bcrypt), raster_config (catálogo de mapas)
 │   │   ├── db/            # Database engine, session, init
-│   │   ├── core/          # Config, security, raster_config (catálogo de mapas)
 │   │   ├── models/        # SQLModel: User, Lot, LotVersion, Analysis, AuditLog
 │   │   ├── routers/       # Endpoints: auth, lots, analyses, health
 │   │   ├── schemas/       # Pydantic: request/response models
-│   │   ├── services/      # Lógica: lot_service, geometry_service, raster_service
+│   │   ├── services/      # Lógica: lot_service, raster_service, notification_service (simulado)
 │   │   ├── workers/       # Celery: análisis raster + tareas periódicas
 │   │   └── utils/         # Generador de reportes PDF
 │   ├── alembic/           # Migraciones (desactualizadas, ver más abajo)
@@ -198,7 +196,7 @@ geoforraje/
 │   └── CONTRIBUTING.md    # Guía de contribución
 ├── docker-compose.yml     # Desarrollo
 ├── docker-compose.prod.yml # Producción
-├── Makefile               # 40+ comandos
+├── Makefile               # ~30 comandos (make help)
 └── README.md
 ```
 
@@ -221,7 +219,6 @@ El estado de cada requerimiento está en `docs/requerimientos.md` y los cambios 
 - Workflow de CI (GitHub Actions) con lint + tests.
 - Tests de frontend (vitest) y correr `make frontend-typecheck`.
 - Export/Import de lotes en GeoJSON (FR-08, prioridad baja).
-- Que el formulario de edición cargue los datos del lote existente.
 - Serie temporal: cargar mapas de varias fechas por especie (la base ya guarda versión y fecha del raster en cada análisis).
 
 ---
@@ -242,7 +239,7 @@ El estado de cada requerimiento está en `docs/requerimientos.md` y los cambios 
 | **Series temporales multi-fecha y comparación de campañas** | El endpoint y el gráfico de serie temporal por lote y especie existen, pero con mapas de una sola fecha (31/10/2026) muestran un único punto; se prevé cargar mapas de varias fechas y comparar campañas o periodos. |
 | **App mobile** | Cliente móvil (React Native / Flutter) para consultar lotes y análisis en el campo sin necesidad de navegador. |
 | **API pública** | Exponer los endpoints con documentación y claves de acceso para que sistemas de terceros consuman el servicio. |
-| **Multi-tenant (organizaciones)** | La arquitectura está preparada (NFR-11), pero el modelo actual es single-user. Permitiría agrupar usuarios y lotes por organización. |
+| **Multi-tenant (organizaciones)** | La arquitectura está preparada (NFR-14), pero el modelo actual es single-user. Permitiría agrupar usuarios y lotes por organización. |
 | **Escalabilidad: microservicios y caching layer** | Separar análisis y mapa en servicios independientes, y cachear tokens/sesiones en Redis (hoy Redis se usa solo como broker de Celery). |
 
 ---

@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useNavigate, useParams } from "react-router-dom"
 import { MapEditor } from "@/components/MapView/MapEditor"
-import { useCreateLot, useUpdateLot } from "@/modules/lots/hooks/useLots"
+import { useCreateLot, useUpdateLot, useLot } from "@/modules/lots/hooks/useLots"
 import type { LotCreate, LotUpdate, LotRead, GeoJSONPolygon } from "@/types/api"
 
 const lotSchema = z.object({
@@ -30,11 +30,15 @@ export function LotForm() {
 
   const createMutation = useCreateLot()
   const updateMutation = useUpdateLot()
+  // En edición se carga el lote existente (nombre y geometría)
+  const { data: existingLot, isLoading: loadingLot } = useLot(id ?? "")
 
   const [geometry, setGeometry] = useState<GeoJSONPolygon | null>(null)
   const [areaHa, setAreaHa] = useState<number | null>(null)
   const [editing, setEditing] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
+  // Solo se envía la geometría si el usuario la cambió: así un cambio de nombre no genera una versión nueva (RN-LOT-03)
+  const [geometryTouched, setGeometryTouched] = useState(false)
 
   const {
     register,
@@ -47,14 +51,16 @@ export function LotForm() {
     defaultValues: { name: "", geometry: { type: "Polygon", coordinates: [[]] }, change_reason: "" },
   })
 
-  // Si es edición, cargar datos (en implementación real usaríamos useLot hook)
+  // Edición: completar el formulario con los datos del lote existente
   useEffect(() => {
-    if (isEdit && id) {
-      // Cargar lote existente
-    }
-  }, [isEdit, id])
+    if (!isEdit || !existingLot) return
+    setValue("name", existingLot.name)
+    setValue("geometry", existingLot.geometry)
+    setGeometry(existingLot.geometry)
+  }, [isEdit, existingLot, setValue])
 
   const handleGeometryChange = (geojson: any) => {
+    setGeometryTouched(true)
     if (geojson?.geometry?.type === "Polygon" && geojson.geometry.coordinates?.[0]?.length >= 4) {
       const normalized: GeoJSONPolygon = {
         type: "Polygon",
@@ -75,9 +81,8 @@ export function LotForm() {
         await updateMutation.mutateAsync({ 
           id, 
           data: { 
-            name: data.name, 
-            geometry: data.geometry, 
-            change_reason: data.change_reason 
+            name: data.name,
+            ...(geometryTouched ? { geometry: data.geometry, change_reason: data.change_reason } : {}),
           } 
         })
       } else {
@@ -127,12 +132,17 @@ export function LotForm() {
       <div>
         <label className="label">Geometría del lote</label>
         <div className="relative">
+          {isEdit && loadingLot ? (
+            <div className="flex items-center justify-center h-[500px] text-gray-500">Cargando lote…</div>
+          ) : (
           <MapEditor
+            key={existingLot?.id ?? "nuevo"}
             initialGeometry={geometry ? { type: "Feature", properties: {}, geometry } : null}
             onGeometryChange={handleGeometryChange}
             readOnly={editing}
             height="500px"
           />
+          )}
           {errors.geometry && (
             <div className="absolute bottom-4 left-4 right-4 bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm">
               {errors.geometry.message}

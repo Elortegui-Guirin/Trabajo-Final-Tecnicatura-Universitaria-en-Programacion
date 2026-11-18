@@ -17,6 +17,7 @@ export function LotList({ onView, onEdit }: LotListProps) {
   const [areaMin, setAreaMin] = useState('')
   const [areaMax, setAreaMax] = useState('')
   const [bbox, setBbox] = useState('')
+  const [showDeleted, setShowDeleted] = useState(false)
   const size = 10
 
   // Construir params para useLots
@@ -27,6 +28,7 @@ export function LotList({ onView, onEdit }: LotListProps) {
     area_min: areaMin ? parseFloat(areaMin) : undefined,
     area_max: areaMax ? parseFloat(areaMax) : undefined,
     bbox: bbox || undefined,
+    include_deleted: showDeleted || undefined,
   }
 
   const { data, isLoading, error, refetch } = useLots({ page, size, ...searchParams })
@@ -155,6 +157,16 @@ export function LotList({ onView, onEdit }: LotListProps) {
                 className="input text-sm font-mono"
                 placeholder="-58.5,-34.5,-58.4,-34.4"
               />
+            </div>
+            <div className="md:col-span-2 lg:col-span-3">
+              <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                <input
+                  type="checkbox"
+                  checked={showDeleted}
+                  onChange={(e) => { setShowDeleted(e.target.checked); handleFilterChange() }}
+                />
+                Mostrar lotes eliminados (para restaurarlos)
+              </label>
             </div>
           </div>
         </details>

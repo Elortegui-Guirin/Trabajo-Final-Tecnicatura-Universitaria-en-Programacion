@@ -64,5 +64,5 @@ Fuente única de las reglas del sistema. Cada regla tiene un identificador (`RN-
 | ID | Regla | Dónde se aplica |
 |----|-------|-----------------|
 | **RN-AUD-01** | La trazabilidad de los lotes se da por dos vías: el **historial de versiones** de geometría (RN-LOT-03) y la **eliminación lógica** (RN-LOT-04, RN-LOT-05) | `lot_versions`, `lots.deleted_at` |
-| **RN-AUD-02** | Los usuarios tampoco se borran físicamente: se marca `deleted_at` y dejan de poder autenticarse | `users.deleted_at`, `get_current_user()` |
+| **RN-AUD-02** | Los usuarios tampoco se borran físicamente: el modelo prevé la baja lógica con `deleted_at` y un usuario dado de baja no puede autenticarse (403). Esta versión no tiene una pantalla para dar de baja usuarios | `users.deleted_at`, `get_current_user()` |
 | **RN-AUD-03** | La tabla `audit_log` (registro genérico de quién cambió qué) **existe en el modelo pero no se usa en esta versión**; su activación es trabajo futuro | `models/audit_log.py` |

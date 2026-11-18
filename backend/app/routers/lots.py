@@ -50,7 +50,7 @@ async def list_lots(
     area_max: Optional[float] = Query(None, le=10000, description="Área máxima en hectáreas"),
     # Bounding box: min_lon,min_lat,max_lon,max_lat
     bbox: Optional[str] = Query(None, description="Bounding box: min_lon,min_lat,max_lon,max_lat"),
-    include_deleted: bool = Query(False, description="Incluir lotes eliminados (solo admins)"),
+    include_deleted: bool = Query(False, description="Incluir los lotes eliminados del propio usuario (para restaurarlos)"),
     current_user: User = Depends(get_current_active_user),
     session: AsyncSession = Depends(get_session),
 ) -> LotListResponse:

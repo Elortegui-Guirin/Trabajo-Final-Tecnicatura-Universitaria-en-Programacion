@@ -15,7 +15,7 @@ cd Trabajo-Final-Tecnicatura-Universitaria-en-Programacion
 make up
 
 # 3. Verificar
-make health
+curl http://localhost:8000/health   # {"status":"ok","database":"ok",...}
 ```
 
 **Accesos**: Frontend `localhost:5173` | Backend `localhost:8000/docs` | pgAdmin `localhost:5050`
@@ -33,7 +33,7 @@ make health
 | Test | `test/` | `test/auth-endpoints` |
 | Chore | `chore/` | `chore/update-deps` |
 
-**Rama base**: `main` (protegida, requiere PR)
+**Rama base**: `main`. Por acuerdo del equipo, hoy se trabaja directamente sobre `main` y se coordina quién toca qué; para cambios grandes se recomienda usar una rama y PR.
 
 ---
 
@@ -64,7 +64,7 @@ Usamos **Conventional Commits**:
 feat(lots): agregar filtro por área en listado
 fix(auth): corregir rotación refresh token
 docs: agregar diagrama ER en diagrama_er.md
-refactor(lot-service): extraer validación geometría a geometry_service
+refactor(lot-service): separar validación de área en validate_area()
 test(auth): agregar test login inválido
 chore: actualizar dependencias frontend
 ```
@@ -88,7 +88,7 @@ make backend-test   # pytest con coverage
 **Estándares**:
 - Python 3.11+, type hints obligatorios
 - Ruff (line-length=100, double quotes)
-- mypy strict mode
+- mypy (sin modo estricto: `disallow_untyped_defs = false`)
 - Pydantic v2 para schemas
 
 ### Frontend (TypeScript/React)
@@ -103,12 +103,12 @@ make frontend-lint  # eslint
 make frontend-typecheck  # tsc --noEmit
 
 # Tests
-make frontend-test  # vitest
+make frontend-test  # vitest (todavía no hay tests de frontend)
 ```
 
 **Estándares**:
 - TypeScript strict mode
-- ESLint + Prettier (single quotes, trailing commas)
+- ESLint + Prettier (scripts definidos en `package.json`; falta agregar los archivos de configuración)
 - React Hook Form + Zod para formularios
 - TanStack Query para server state
 - Zustand para client state
@@ -145,7 +145,7 @@ make frontend-test  # vitest
    - **Screenshots** (si aplica UI)
    - **Breaking changes**: Sí/No
 
-6. **Review**: Mínimo 1 aprobación + CI verde
+6. **Review**: Mínimo 1 aprobación de la otra integrante (todavía no hay CI configurado)
 
 7. **Merge**: Squash and merge (historial limpio)
 
@@ -165,10 +165,9 @@ make frontend-test
 
 # Coverage
 make backend-test     # genera reporte en terminal
-make frontend-test    # vitest --coverage
 ```
 
-**Regla**: Tests nuevos para cada feature/fix. Coverage mínimo 80%.
+**Regla**: Tests nuevos para cada feature/fix. Objetivo de cobertura: 80% (NFR-20; todavía sin medir).
 
 ---
 
@@ -210,9 +209,9 @@ Usa las plantillas de GitHub Issues:
 
 ## 📞 Contacto
 
-- **Verónica Guirin** - vguirin@universidad.edu
-- **Rosario Elortegui** - relortegui@universidad.edu
+- **Verónica Guirin** - veronica.guirin@outlook.es
+- **María del Rosario Margarita Iturralde Elortegui** - rosario_iturralde@hotmail.com
 
 ---
 
-**Última actualización**: Septiembre 2026
+**Última actualización**: Noviembre 2026

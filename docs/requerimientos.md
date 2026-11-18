@@ -96,7 +96,7 @@ Numeración única y correlativa, agrupada por categoría.
 |----|--------|---------------|
 | FR-01 | ✅ Implementado | Además: verificación de email y recuperación de contraseña (los emails se registran en el log, no se envían) |
 | FR-02 | ✅ Implementado | Rotación con `jti`; el logout invalida el refresh token en el servidor |
-| FR-03 | ✅ Implementado | Eliminación lógica y restauración. Pendiente: el formulario de edición todavía no carga los datos del lote |
+| FR-03 | ✅ Implementado | Eliminación lógica y restauración (filtro "Mostrar lotes eliminados"). La edición carga el lote existente y solo envía la geometría si se redibujó |
 | FR-04 | ✅ Implementado | Leaflet + Geoman |
 | FR-05 | ✅ Implementado | Mapas reales del 31/10/2026; la serie temporal tiene un punto por especie hasta que haya mapas de otras fechas |
 | FR-06 | ✅ Implementado | |

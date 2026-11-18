@@ -139,7 +139,7 @@ Crear un lote genera la versión 1 en el historial.
 | `date_from`, `date_to` | `2026-11-01T00:00:00Z` | Rango de fecha de creación |
 | `area_min`, `area_max` | `50`, `500` | Rango de área en ha |
 | `bbox` | `-60,-37,-59,-36` | Lotes que intersectan el rectángulo `min_lon,min_lat,max_lon,max_lat` |
-| `include_deleted` | `true` | Incluir lotes eliminados |
+| `include_deleted` | `true` | Incluir los lotes eliminados del usuario (para restaurarlos) |
 
 **Response 200**:
 ```json
@@ -194,7 +194,7 @@ Los recursos forrajeros son mapas de **tasa de crecimiento (kg MS/ha/día)**:
   "store_clipped_raster": false
 }
 ```
-**Response 202**: `AnalysisRead` con `status: "pending"`. El worker de Celery lo procesa y lo pasa a `processing` y después a `completed`, o a `failed` con `error_message`. El frontend consulta `GET /analyses/{id}` cada 3 s hasta que termina.
+**Response 202**: `AnalysisRead` con `status: "pending"`. El worker de Celery lo procesa y lo pasa a `processing` y después a `completed`, o a `failed` con `error_message`. Mientras el análisis esté `pending` o `processing`, el frontend vuelve a consultar el listado o el detalle cada 2 s.
 
 - Si ya existe un análisis **completado** del mismo lote, especie, geometría y versión de raster, se devuelve ese (cache).
 - **409** si ya hay un análisis `pending`/`processing` para el mismo lote y especie:

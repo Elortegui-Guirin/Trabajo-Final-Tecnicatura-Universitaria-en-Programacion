@@ -16,6 +16,16 @@ Formato: fecha, qué cambió y por qué. Lo más reciente arriba.
 7. **NFR**: renumerados sin duplicados (NFR-01 a NFR-21), agrupados por categoría.
 8. **Análisis y diseño**: nuevo `docs/analisis_y_diseno.md`, con casos de uso, diagramas de actividades, de estados y de clases.
 
+### Código: diferencias encontradas al contrastar la documentación
+- **Editar lote**: el formulario no cargaba los datos del lote. Ahora carga el nombre y la geometría, y solo envía la geometría si se redibujó; así un cambio de nombre no crea una versión (RN-LOT-03). El título de la página dice "Editar lote".
+- **Producción**: `Dockerfile.prod` arranca con Gunicorn, pero `gunicorn` no estaba en las dependencias. Se agregó a `pyproject.toml`.
+- **Restaurar lote**: el listado nunca pedía los lotes eliminados, así que el botón "Restaurar" no se podía usar. Se agregó el filtro "Mostrar lotes eliminados" (`include_deleted`).
+
+### Tests
+- Los tests de aislamiento entre usuarios usaban contraseñas de 7 caracteres, por debajo del mínimo de 8. Ahora verifican que el registro devuelva 201.
+- `test_get_lot_analyses` usaba una ruta inexistente; la correcta es `/analyses/lots/{id}/analyses`.
+- El rate limit de login (en memoria) se reinicia entre tests.
+
 ### Requerimientos
 - Nuevo FR-07 "Panel de control". Export/Import GeoJSON pasa de FR-07 a **FR-08**.
 - `arquitectura.md` reescrito: componentes, flujo de análisis, autenticación, despliegue y decisiones. Todos los diagramas Mermaid se validaron.
@@ -27,7 +37,11 @@ Formato: fecha, qué cambió y por qué. Lo más reciente arriba.
   - `modules/auth/components/{LoginForm,RegisterForm,ProtectedRoute}.tsx`.
   - `components/Layout/PrivateLayout.tsx`.
 - Backend sin uso: `services/geometry_service.py` y `schemas/geometry.py`.
-- README y CONTRIBUTING se actualizaron para no referenciar lo eliminado.
+- README y CONTRIBUTING se actualizaron para no referenciar lo eliminado. También se corrigieron:
+  - comandos de `make` inexistentes (`make health`, `make migrate-downgrade`);
+  - afirmaciones que no se cumplían: CI, mypy estricto y rama protegida;
+  - la numeración NFR-11 → NFR-14.
+- README: se agregó Claude en "Uso de IA".
 
 ---
 
@@ -144,5 +158,5 @@ Formato: fecha, qué cambió y por qué. Lo más reciente arriba.
   - Por qué alfalfa y festuca coinciden en ~17% de los píxeles.
   - Si los píxeles en 0 (≈6%, iguales en las 4 especies) son "sin crecimiento" o una máscara.
 - ~~Borrar los componentes de mapa viejos sin uso~~ (hecho el 18/11).
-- Editar un lote existente: el formulario de edición todavía no carga los datos del lote.
+- ~~Editar un lote existente: el formulario no carga los datos~~ (hecho el 18/11).
 - El `Makefile` no se pudo editar con las herramientas usadas. Agregar a mano un target `health` si se quiere.
