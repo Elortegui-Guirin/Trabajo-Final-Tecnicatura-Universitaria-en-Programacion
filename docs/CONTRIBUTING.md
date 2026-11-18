@@ -188,13 +188,12 @@ geoforraje/
 │   └── alembic/           # Migraciones
 ├── frontend/
 │   ├── src/
-│   │   ├── modules/       # Feature modules (auth, lots, map, results)
+│   │   ├── modules/       # Feature modules (auth, lots, results)
 │   │   ├── components/    # Componentes compartidos
 │   │   ├── hooks/         # Custom hooks
 │   │   └── types/         # TypeScript types
-│   └── tests/             # vitest
-├── spec/printable/        # Spec por fase
-├── docs/                  # Documentación adicional
+├── data/rasters/          # Mapas GeoTIFF por especie
+├── docs/                  # Documentación del sistema
 └── docker-compose.yml
 ```
 

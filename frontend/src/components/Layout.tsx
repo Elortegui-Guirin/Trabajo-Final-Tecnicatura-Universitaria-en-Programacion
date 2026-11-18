@@ -1,10 +1,24 @@
 // GeoForraje Frontend - Layout Principal
-import { Outlet, Link, useLocation } from 'react-router-dom'
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/modules/auth/store/authStore'
+import { authApi } from '@/modules/auth/api/authApi'
 
 export function Layout() {
   const { user, logout } = useAuthStore()
   const location = useLocation()
+  const navigate = useNavigate()
+
+  // Logout en ambos lados: el backend invalida el refresh token y el frontend borra la sesión.
+  // Si el pedido falla (sin conexión, token vencido) igual se cierra la sesión local.
+  const handleLogout = async () => {
+    try {
+      await authApi.logout()
+    } catch {
+      // ignorar: la sesión local se cierra igual
+    }
+    logout()
+    navigate('/login')
+  }
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
@@ -44,7 +58,7 @@ export function Layout() {
                 {user?.full_name || user?.email}
               </span>
               <button
-                onClick={logout}
+                onClick={handleLogout}
                 className="btn-secondary text-sm"
               >
                 Cerrar sesión

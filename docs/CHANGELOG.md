@@ -4,6 +4,33 @@ Formato: fecha, qué cambió y por qué. Lo más reciente arriba.
 
 ---
 
+## 2026-11-18 — Respuesta a la revisión del profesor y limpieza del repositorio
+
+### Revisión del profesor (8 puntos)
+1. **DER**: ya reflejaba auditoría, versionado, soft delete y campos de autenticación desde el 11/11 (`diagrama_er.md`).
+2. **Refresh token**: se documenta dónde se persiste la rotación (`users.refresh_token_jti`) en `API_SPECS.md`, `negocio.md` (RN-AUTH) y `arquitectura.md` (diagrama de secuencia).
+3. **Logout**: definición única, "en ambos lados". El servidor borra el `jti` y el cliente borra sus tokens. Se implementó en el backend (`POST /auth/logout`) y en el frontend (`Layout`, `useAuth`). Nuevo test: `test_logout_invalidates_refresh_token`.
+4. **Eliminación de análisis**: regla única RN-LOT-05. El lote se borra lógicamente y sus análisis **se conservan**; no hay borrado en cascada.
+5. **Trazabilidad**: nuevo `docs/trazabilidad.md`, que vincula requerimiento → regla → endpoint → tabla → módulo → test.
+6. **Reglas de negocio**: `negocio.md` reescrito como fuente única con IDs (RN-GEO, RN-AUTH, RN-LOT, RN-ANA, RN-MAP, RN-AUD).
+7. **NFR**: renumerados sin duplicados (NFR-01 a NFR-21), agrupados por categoría.
+8. **Análisis y diseño**: nuevo `docs/analisis_y_diseno.md`, con casos de uso, diagramas de actividades, de estados y de clases.
+
+### Requerimientos
+- Nuevo FR-07 "Panel de control". Export/Import GeoJSON pasa de FR-07 a **FR-08**.
+- `arquitectura.md` reescrito: componentes, flujo de análisis, autenticación, despliegue y decisiones. Todos los diagramas Mermaid se validaron.
+
+### Archivos eliminados (obsoletos; recuperables desde el historial de git)
+- `docs/fase_1..5_*.md`: especificación original por fase. Contradecía decisiones posteriores (cascada, `leaflet.pm`, etc.).
+- Frontend sin uso:
+  - `components/MapView/{DrawControl,useMap,VectorLayer,BaseLayers}`.
+  - `modules/auth/components/{LoginForm,RegisterForm,ProtectedRoute}.tsx`.
+  - `components/Layout/PrivateLayout.tsx`.
+- Backend sin uso: `services/geometry_service.py` y `schemas/geometry.py`.
+- README y CONTRIBUTING se actualizaron para no referenciar lo eliminado.
+
+---
+
 ## 2026-11-11 — Correcciones de arranque y mapas reales
 
 ### Mapas de tasa de crecimiento
@@ -116,6 +143,6 @@ Formato: fecha, qué cambió y por qué. Lo más reciente arriba.
 - Aclarar con la fuente de los mapas:
   - Por qué alfalfa y festuca coinciden en ~17% de los píxeles.
   - Si los píxeles en 0 (≈6%, iguales en las 4 especies) son "sin crecimiento" o una máscara.
-- Borrar los componentes de mapa viejos sin uso (`DrawControl`, `useMap`, `VectorLayer`, `BaseLayers`).
+- ~~Borrar los componentes de mapa viejos sin uso~~ (hecho el 18/11).
 - Editar un lote existente: el formulario de edición todavía no carga los datos del lote.
 - El `Makefile` no se pudo editar con las herramientas usadas. Agregar a mano un target `health` si se quiere.

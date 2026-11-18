@@ -186,15 +186,16 @@ geoforraje/
 │   └── package.json
 ├── data/
 │   └── rasters/           # Mapas GeoTIFF de tasa de crecimiento (4 especies)
-├── docs/                  # Documentación adicional
-│   ├── diagrama_er.md     # ER Diagram (Mermaid)
-│   ├── arquitectura.md    # Arquitectura C4 + secuencia + despliegue
-│   ├── requerimientos.md  # FR/NFR formales
-│   ├── negocio.md         # Reglas de negocio
-│   ├── API_SPECS.md       # Documentación endpoints
+├── docs/                  # Documentación del sistema
+│   ├── requerimientos.md  # FR/NFR + estado de implementación
+│   ├── negocio.md         # Reglas de negocio (fuente única, con IDs RN-…)
+│   ├── trazabilidad.md    # Matriz requerimiento ↔ regla ↔ API ↔ tabla ↔ módulo ↔ test
+│   ├── analisis_y_diseno.md # Casos de uso, actividades, estados y clases
+│   ├── arquitectura.md    # Componentes, flujos, despliegue y decisiones
+│   ├── diagrama_er.md     # Diagrama Entidad-Relación
+│   ├── API_SPECS.md       # Endpoints, esquemas y errores
 │   ├── CHANGELOG.md       # Registro de cambios
-│   ├── CONTRIBUTING.md    # Guía contribución
-│   └── fase_*.md          # Especificación original de cada fase
+│   └── CONTRIBUTING.md    # Guía de contribución
 ├── docker-compose.yml     # Desarrollo
 ├── docker-compose.prod.yml # Producción
 ├── Makefile               # 40+ comandos
@@ -213,13 +214,14 @@ geoforraje/
 | 4 | Mapa Leaflet + Geoman (dibujar, editar, capas base OSM/satélite) | ✅ Completada (reescrita el 11/11, ver CHANGELOG) |
 | 5 | Análisis raster (GeoTIFF, Rasterio, Celery) + despliegue prod | 🟡 Análisis implementado con mapas reales; despliegue prod sin probar |
 
-Los archivos `docs/fase_*.md` son la especificación original de cada fase; el estado real y los cambios están en `docs/CHANGELOG.md`.
+El estado de cada requerimiento está en `docs/requerimientos.md` y los cambios en `docs/CHANGELOG.md`. La especificación original por fase (`docs/fase_*.md`) se retiró el 18/11 porque describía decisiones que luego cambiaron; queda disponible en el historial de git.
 
 ### Pendientes conocidos
 - Regenerar las migraciones de Alembic para que coincidan con los modelos.
 - Workflow de CI (GitHub Actions) con lint + tests.
 - Tests de frontend (vitest) y correr `make frontend-typecheck`.
-- Export/Import de lotes en GeoJSON (FR-07, prioridad baja).
+- Export/Import de lotes en GeoJSON (FR-08, prioridad baja).
+- Que el formulario de edición cargue los datos del lote existente.
 - Serie temporal: cargar mapas de varias fechas por especie (la base ya guarda versión y fecha del raster en cada análisis).
 
 ---
@@ -233,11 +235,11 @@ Los archivos `docs/fase_*.md` son la especificación original de cada fase; el e
 | **Notificaciones por email reales** | Los endpoints de verificación de email y reseteo de contraseña funcionan, pero el envío real está simulado (solo registra en logs). Requiere integrar un proveedor (SendGrid, Mailgun, SES). |
 | **Alertas push y multi-canal** | Existe la base de un servicio de notificaciones (email/push/webhook) sin conectar a proveedores reales. Permitiría avisar al usuario cuando un análisis termina o se detecta una anomalía de crecimiento. |
 | **Integración con fuentes satelitales (Google Earth Engine / Sentinel)** | La tarea programada de actualización de mapas es un placeholder. Permitiría descargar y actualizar los GeoTIFF automáticamente desde imágenes satelitales, sin reemplazo manual. |
-| **Export / Import de lotes (GeoJSON)** | Requerimiento FR-07 de prioridad baja: descargar lotes como archivo GeoJSON o importar geometrías existentes desde archivos. |
+| **Export / Import de lotes (GeoJSON)** | Requerimiento FR-08 de prioridad baja: descargar lotes como archivo GeoJSON o importar geometrías existentes desde archivos. |
 | **Trazabilidad activa de cambios (AuditLog)** | La tabla y el modelo `AuditLog` existen en la BD, pero el registro de quién modificó qué y cuándo queda como evolución futura (no está activo en el MVP). |
-| **Reporte PDF con mapa embebido** | El PDF actual incluye logo, metadata, estadísticas y leyenda, pero el mapa del lote queda como texto pendiente de incrustar como imagen. |
+| **Reporte PDF del análisis** | Existe un generador de reportes (logo, metadata, estadísticas, leyenda) en estado de prototipo: todavía no está integrado ni probado, y le falta incrustar el mapa del lote. |
 | **Actualización en tiempo real (WebSockets)** | Hoy el estado de los análisis se consulta por polling. WebSockets actualizaría la UI sin necesidad de refrescos manuales. |
-| **Series temporales multi-fecha y comparación de campañas** | Se entrega la serie temporal básica por lote/especie; se prevé cargar mapas de varias fechas y comparar campañas o periodos. |
+| **Series temporales multi-fecha y comparación de campañas** | El endpoint y el gráfico de serie temporal por lote y especie existen, pero con mapas de una sola fecha (31/10/2026) muestran un único punto; se prevé cargar mapas de varias fechas y comparar campañas o periodos. |
 | **App mobile** | Cliente móvil (React Native / Flutter) para consultar lotes y análisis en el campo sin necesidad de navegador. |
 | **API pública** | Exponer los endpoints con documentación y claves de acceso para que sistemas de terceros consuman el servicio. |
 | **Multi-tenant (organizaciones)** | La arquitectura está preparada (NFR-11), pero el modelo actual es single-user. Permitiría agrupar usuarios y lotes por organización. |
@@ -249,10 +251,12 @@ Los archivos `docs/fase_*.md` son la especificación original de cada fase; el e
 
 | Archivo | Descripción |
 |---------|-------------|
+| `docs/requerimientos.md` | Requerimientos Funcionales (FR) y No Funcionales (NFR), con estado de implementación |
+| `docs/negocio.md` | Reglas de negocio con identificador (RN-GEO, RN-AUTH, RN-LOT, RN-ANA, RN-MAP, RN-AUD) |
+| `docs/trazabilidad.md` | Matriz de trazabilidad: requerimientos ↔ reglas ↔ API ↔ tablas ↔ módulos ↔ tests |
+| `docs/analisis_y_diseno.md` | Casos de uso, diagramas de actividades, de estados y de clases |
+| `docs/arquitectura.md` | Componentes, flujo de análisis, autenticación, despliegue y decisiones |
 | `docs/diagrama_er.md` | Diagrama Entidad-Relación (Mermaid) |
-| `docs/arquitectura.md` | Arquitectura C4, secuencia, despliegue, decisiones |
-| `docs/requerimientos.md` | Requerimientos Funcionales (FR) y No Funcionales (NFR) |
-| `docs/negocio.md` | Reglas de negocio (validación geometría, auth, lotes, análisis) |
 | `docs/API_SPECS.md` | Endpoints, esquemas, códigos error, autenticación |
 | `docs/CONTRIBUTING.md` | Guía de contribución, ramas, commits, PRs, testing |
 | `docs/CHANGELOG.md` | Registro de cambios y pendientes |
@@ -354,7 +358,7 @@ docker compose -f docker-compose.prod.yml up -d
 
 ## Uso de IA
 
-Durante el desarrollo se utilizó **OpenCode con MiMoCode** como herramienta de apoyo en dos situaciones concretas:
+Durante el desarrollo se utilizaron dos herramientas de IA como apoyo: **OpenCode con MiMoCode** (en la construcción inicial) y **Claude** (Anthropic, en la etapa de corrección, puesta en marcha y documentación).
 
 1. **Codificación de la interfaz de usuario (frontend React + Leaflet)**
    Se usó para generar los componentes base de la UI (formularios, listas, mapa interactivo con dibujo de polígonos) porque el tiempo de entrega era acotado y se necesitaba acelerar esa parte del trabajo.
@@ -363,6 +367,16 @@ Durante el desarrollo se utilizó **OpenCode con MiMoCode** como herramienta de 
 2. **Brecha de conocimiento en tecnologías geoespaciales y de procesamiento (PostGIS, Rasterio, Celery)**
    Se usó para entender e implementar el procesamiento de imágenes raster, el recorte por geometría del lote y la ejecución de tareas en background, porque el equipo no tenía experiencia previa con esas tecnologías.
    **Ventaja observada:** la herramienta sirvió como apoyo para comprender el enfoque técnico y generar un primer borrador funcional sin bloquear el avance del proyecto, acortando la curva de aprendizaje.
+
+3. **Revisión, depuración y puesta en marcha del sistema (Claude)**
+   Se usó Claude para revisar el estado del proyecto y corregir los errores que impedían arrancarlo: errores de sintaxis, modelos duplicados, rutas mal definidas, incompatibilidades de dependencias y el módulo de mapas. También se usó para ejecutarlo con Docker en Windows e integrar los mapas GeoTIFF de tasa de crecimiento de las cuatro especies.
+   **Ventaja observada:** se pasó de un código que no arrancaba a un sistema funcional de punta a punta (registro, lotes, análisis raster y dashboard) en pocos días. Cada corrección quedó registrada en `docs/CHANGELOG.md`.
+
+4. **Documentación y respuesta a la revisión del tutor (Claude)**
+   Se usó para unificar las reglas de negocio, renumerar los requerimientos y elaborar la matriz de trazabilidad y los diagramas de análisis y diseño (casos de uso, actividades, estados y clases), contrastándolos con el código real.
+   **Ventaja observada:** la documentación quedó consistente con lo implementado y se eliminaron los documentos obsoletos que se contradecían entre sí.
+
+En todos los casos, el equipo revisó, probó y validó el código y la documentación generados antes de incorporarlos al repositorio.
 
 ---
 

@@ -376,10 +376,18 @@ async def reset_password(
 
 
 @router.post("/logout", response_model=AuthMessageResponse)
-async def logout() -> AuthMessageResponse:
+async def logout(
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_session),
+) -> AuthMessageResponse:
     """
-    Logout del lado del servidor.
-    Nota: Con JWT stateless, el logout real se hace en frontend borrando tokens.
-    Este endpoint es para logging/auditoría.
+    Logout en ambos lados (regla RN-AUTH-06):
+    - Servidor: borra el refresh token vigente (users.refresh_token_jti = NULL),
+      así ese refresh token ya no sirve para obtener nuevos tokens.
+    - Cliente: el frontend borra los tokens guardados y redirige a /login.
+    El access token restante expira solo (15 min); al ser JWT stateless no se guarda en el servidor.
     """
+    current_user.refresh_token_jti = None
+    session.add(current_user)
+    await session.commit()
     return AuthMessageResponse(message="Sesión cerrada correctamente")

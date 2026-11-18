@@ -74,6 +74,10 @@ async def _create_schema():
 @pytest_asyncio.fixture(autouse=True)
 async def _clean_tables(_create_schema):
     """Vacía todas las tablas antes de cada test."""
+    # El rate limit de login es en memoria y por IP: en tests todas las requests
+    # vienen de la misma IP, así que se reinicia para que un test no bloquee al siguiente.
+    from app.routers.auth import login_attempts
+    login_attempts.clear()
     async with engine.begin() as conn:
         await conn.execute(text(f"TRUNCATE {', '.join(_TABLES)} RESTART IDENTITY CASCADE"))
     yield

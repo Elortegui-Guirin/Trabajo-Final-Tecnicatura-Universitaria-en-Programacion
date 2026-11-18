@@ -221,7 +221,7 @@ async def test_get_analysis_detail(async_client: AsyncClient, auth_headers, test
 @pytest.mark.asyncio
 async def test_get_lot_analyses(async_client: AsyncClient, auth_headers, test_lot):
     """Prueba shortcut para análisis de un lote."""
-    response = await async_client.get(f"/lots/{test_lot['id']}/analyses", headers=auth_headers)
+    response = await async_client.get(f"/analyses/lots/{test_lot['id']}/analyses", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert "items" in data
@@ -252,13 +252,15 @@ async def test_analysis_timeseries(async_client: AsyncClient, auth_headers, test
 async def test_analysis_ownership_isolation(async_client: AsyncClient, sample_polygon):
     """Prueba que usuarios solo ven sus propios análisis."""
     # Usuario 1
-    await async_client.post("/auth/register", json={"email": "u1@test.com", "password": "pass123", "full_name": "User 1"})
-    login1 = await async_client.post("/auth/login", json={"email": "u1@test.com", "password": "pass123"})
+    reg = await async_client.post("/auth/register", json={"email": "u1@test.com", "password": "password123", "full_name": "User 1"})
+    assert reg.status_code == 201, reg.text
+    login1 = await async_client.post("/auth/login", json={"email": "u1@test.com", "password": "password123"})
     headers1 = {"Authorization": f"Bearer {login1.json()['access_token']}"}
     
     # Usuario 2
-    await async_client.post("/auth/register", json={"email": "u2@test.com", "password": "pass123", "full_name": "User 2"})
-    login2 = await async_client.post("/auth/login", json={"email": "u2@test.com", "password": "pass123"})
+    reg = await async_client.post("/auth/register", json={"email": "u2@test.com", "password": "password123", "full_name": "User 2"})
+    assert reg.status_code == 201, reg.text
+    login2 = await async_client.post("/auth/login", json={"email": "u2@test.com", "password": "password123"})
     headers2 = {"Authorization": f"Bearer {login2.json()['access_token']}"}
     
     # User 1 crea lote

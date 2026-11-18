@@ -1,4 +1,5 @@
 // useAuth.ts - Custom hook for auth state
+import { authApi } from '@/modules/auth/api/authApi'
 import { useEffect, useState } from "react"
 import { useAuthStore } from "@/modules/auth/store/authStore"
 
@@ -15,7 +16,12 @@ export function useAuth() {
     login(tokens, user)
   }
 
-  const logoutWithRedirect = () => {
+  const logoutWithRedirect = async () => {
+    try {
+      await authApi.logout() // invalida el refresh token en el servidor
+    } catch {
+      // ignorar: la sesión local se cierra igual
+    }
     logout()
     window.location.href = "/login"
   }

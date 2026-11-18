@@ -356,13 +356,15 @@ async def test_soft_delete_preserves_analyses(async_client: AsyncClient, auth_he
 async def test_lot_ownership_isolation(async_client: AsyncClient, sample_polygon):
     """Prueba que usuarios solo ven sus propios lotes."""
     # Usuario 1
-    await async_client.post("/auth/register", json={"email": "user1@test.com", "password": "pass123", "full_name": "User 1"})
-    login1 = await async_client.post("/auth/login", json={"email": "user1@test.com", "password": "pass123"})
+    reg = await async_client.post("/auth/register", json={"email": "user1@test.com", "password": "password123", "full_name": "User 1"})
+    assert reg.status_code == 201, reg.text
+    login1 = await async_client.post("/auth/login", json={"email": "user1@test.com", "password": "password123"})
     headers1 = {"Authorization": f"Bearer {login1.json()['access_token']}"}
     
     # Usuario 2
-    await async_client.post("/auth/register", json={"email": "user2@test.com", "password": "pass123", "full_name": "User 2"})
-    login2 = await async_client.post("/auth/login", json={"email": "user2@test.com", "password": "pass123"})
+    reg = await async_client.post("/auth/register", json={"email": "user2@test.com", "password": "password123", "full_name": "User 2"})
+    assert reg.status_code == 201, reg.text
+    login2 = await async_client.post("/auth/login", json={"email": "user2@test.com", "password": "password123"})
     headers2 = {"Authorization": f"Bearer {login2.json()['access_token']}"}
     
     # User 1 crea lote

@@ -15,7 +15,7 @@ La referencia siempre actualizada es **http://localhost:8000/docs**.
 | POST | `/auth/login` | Login, retorna access + refresh tokens | ❌ |
 | POST | `/auth/refresh` | Rotar refresh token (el anterior queda inválido) | ❌ |
 | GET | `/auth/me` | Usuario actual desde token | ✅ |
-| POST | `/auth/logout` | Logout (el frontend borra los tokens) | ❌ |
+| POST | `/auth/logout` | Logout: invalida el refresh token en el servidor (el frontend además borra los tokens) | ✅ |
 | POST | `/auth/verify-email` | Verificar email con token | ❌ |
 | POST | `/auth/resend-verification` | Reenviar email de verificación | ❌ |
 | POST | `/auth/forgot-password` | Pedir token para restablecer contraseña | ❌ |
@@ -72,6 +72,10 @@ La referencia siempre actualizada es **http://localhost:8000/docs**.
 }
 ```
 **Response 200**: nuevo par de tokens. El refresh token usado queda **inválido**; reutilizarlo devuelve **401**.
+
+#### `POST /auth/logout`
+**Headers**: `Authorization: Bearer <access_token>`
+**Response 200**: `{ "message": "Sesión cerrada correctamente" }`. Desde ese momento el refresh token de la sesión devuelve 401.
 
 #### `GET /auth/me`
 **Headers**: `Authorization: Bearer <access_token>`
@@ -315,6 +319,9 @@ interface AnalysisRead {
 2. Requests con `Authorization: Bearer <access>`
 3. Si responde 401, el interceptor del frontend llama a `POST /auth/refresh`
 4. `POST /auth/refresh` devuelve un par nuevo e invalida el refresh anterior
+5. `POST /auth/logout` borra el refresh token vigente en el servidor; el frontend borra los tokens y vuelve a `/login`
+
+**Dónde se guarda la rotación**: cada refresh token lleva un identificador único (`jti`). En `users.refresh_token_jti` se guarda solo el del token vigente: `refresh` exige que coincida y lo reemplaza, y `logout` lo pone en `NULL`. Reglas RN-AUTH-03 a RN-AUTH-06 en [`negocio.md`](negocio.md).
 
 ---
 

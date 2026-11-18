@@ -110,3 +110,24 @@ async def test_get_me_with_token(async_client: AsyncClient):
     assert response.status_code == 200
     data = response.json()
     assert data["email"] == "test5@example.com"
+
+
+@pytest.mark.asyncio
+async def test_logout_invalidates_refresh_token(async_client: AsyncClient):
+    """RN-AUTH-06: después del logout, el refresh token ya no sirve."""
+    await async_client.post(
+        "/auth/register",
+        json={"email": "logout@example.com", "password": "password123", "full_name": "Logout User"},
+    )
+    login = await async_client.post(
+        "/auth/login", json={"email": "logout@example.com", "password": "password123"}
+    )
+    tokens = login.json()
+
+    resp = await async_client.post(
+        "/auth/logout", headers={"Authorization": f"Bearer {tokens['access_token']}"}
+    )
+    assert resp.status_code == 200
+
+    refresh = await async_client.post("/auth/refresh", json={"refresh_token": tokens["refresh_token"]})
+    assert refresh.status_code == 401
